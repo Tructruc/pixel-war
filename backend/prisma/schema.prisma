@@ -1,0 +1,20 @@
+generator client {
+   provider = "prisma-client-js"
+}
+
+model User {
+   id          String    @id @default(uuid())
+   next_timestamp DateTime
+}
+
+model Canva {
+   x         Int
+   y         Int
+   color     Int
+   @@id([x, y])
+}
+
+datasource db {
+   provider = "sqlite"
+   url      = "file:./dev.db"
+}

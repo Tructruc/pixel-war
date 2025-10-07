@@ -4,7 +4,7 @@ generator client {
 
 model User {
    id          String    @id @default(uuid())
-   next_timestamp DateTime
+   next_timestamp DateTime @default(now())
 }
 
 model Canva {

@@ -1,4 +1,4 @@
-import expressX from '@jcbuisson/express-x'
+import { expressX } from '@jcbuisson/express-x'
 import { PrismaClient } from '@prisma/client'
 
 // `app` is a regular express application, enhanced with service and real-time features
@@ -23,30 +23,22 @@ app.service('Canva').publish(async (pixel, context) => {
   return ['anonymous']
 })
 
-// subscribe - when a client connects, join them to default channels
-app.on('connection', (socket) => {
-  console.log('connection', socket.id)
-  app.joinChannel('anonymous', socket)
+// publish
+app.service('User').publish(async (user, context) => {
+   return ['anonymous']
+})
+app.service('Canva').publish(async (post, context) => {
+   return ['anonymous']
 })
 
-// simple health route (express still works as usual)
-app.get('/health', (req, res) => res.json({ ok: true }))
+// subscribe
+app.addConnectListener((socket) => {
+   app.joinChannel('anonymous', socket)
+})
 
-const PORT = process.env.PORT || 8000
-app.server.listen(PORT, () => console.log(`App listening at http://localhost:${PORT}`))
+// health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' })
+})
 
-// graceful shutdown for Prisma
-async function shutdown() {
-  console.log('shutting down...')
-  try {
-    await prisma.$disconnect()
-  } catch (err) {
-    console.error('Error during prisma disconnect', err)
-  }
-  process.exit(0)
-}
-
-process.on('SIGINT', shutdown)
-process.on('SIGTERM', shutdown)
-
-export default app
+app.httpServer.listen(8000, () => console.log(`App listening at http://localhost:8000`))

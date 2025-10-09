@@ -3,14 +3,15 @@ generator client {
 }
 
 model User {
-   id          String    @id @default(uuid())
-   next_timestamp DateTime @default(now())
+   id              String    @id @default(uuid())
+   nextPlacementAt DateTime  @default(now())
 }
 
 model Canva {
    x         Int
    y         Int
    color     Int
+   placedAt  DateTime @default(now())
    @@id([x, y])
 }
 

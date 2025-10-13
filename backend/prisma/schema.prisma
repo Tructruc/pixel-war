@@ -4,7 +4,7 @@ generator client {
 
 model User {
    id              String    @id @default(uuid())
-   nextPlacementAt DateTime  @default(now())
+   nextPlacementAt DateTime?
 }
 
 model Canva {
@@ -13,6 +13,7 @@ model Canva {
    color     Int
    placedAt  DateTime @default(now())
    @@id([x, y])
+   @@index([placedAt])
 }
 
 datasource db {

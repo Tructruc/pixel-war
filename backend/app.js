@@ -1,15 +1,19 @@
-import { expressX } from '@jcbuisson/express-x'
-import { PrismaClient } from '@prisma/client'
+import { expressX } from '@jcbuisson/express-x';
+import { PrismaClient } from '@prisma/client';
+import { ValidationError, NotFoundError, TooManyRequestsError } from './errors.js';
 
-const app = expressX()
-const prisma = new PrismaClient()
+const app = expressX();
+const prisma = new PrismaClient();
 
 const PIXEL_COOLDOWN_MS = 5_000
 const MAX_X = 1023
 const MAX_Y = 1023
 const MAX_COLOR = 15
 
-const pixelChanges = new Map()
+// small helpers
+const toIso = (d) => (d ? (d instanceof Date ? d.toISOString() : String(d)) : null);
+
+// in-memory change cache removed; DB is now the source of truth
 
 // User service methods
 const userMethods = {
@@ -18,17 +22,17 @@ const userMethods = {
    * @returns {{id: string}}
    */
   authenticate: async () => {
-    const newUser = await prisma.user.create({ data: {} })
-    return { id: newUser.id }
+    const newUser = await prisma.user.create({ data: {} });
+    return { id: newUser.id };
   },
 
   /** Return the next allowed placement time for a user. */
   getNextPlaceTime: async (userId) => {
-    if (!userId) throw new Error('userId is required')
-    const user = await prisma.user.findUnique({ where: { id: userId } })
-    if (!user) throw new Error('user not found')
-    return user.nextPlacementAt
-  }
+    if (!userId) throw new ValidationError('userId is required');
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundError('user not found');
+    return toIso(user.nextPlacementAt);
+  },
 }
 
 app.createService('User', userMethods)
@@ -44,49 +48,55 @@ const canvaMethods = {
    * @returns {Date} nextAllowedPlacement
    */
   placePixel: async (userId, x, y, colorId) => {
-    if (!userId) throw new Error('userId is required')
+    if (!userId) throw new ValidationError('userId is required')
     if (!Number.isInteger(x) || !Number.isInteger(y) || !Number.isInteger(colorId)) {
-      throw new Error('x, y and colorId must be integers')
+      throw new ValidationError('x, y and colorId must be integers');
     }
-    if (x < 0 || x > MAX_X || y < 0 || y > MAX_Y) throw new Error(`x and y must be between 0 and ${MAX_X}`)
-    if (colorId < 0 || colorId > MAX_COLOR) throw new Error(`colorId must be between 0 and ${MAX_COLOR}`)
+    if (x < 0 || x > MAX_X || y < 0 || y > MAX_Y) throw new ValidationError(`x and y must be between 0 and ${MAX_X}`);
+    if (colorId < 0 || colorId > MAX_COLOR) throw new ValidationError(`colorId must be between 0 and ${MAX_COLOR}`);
 
-    const user = await prisma.user.findUnique({ where: { id: userId } })
-    if (!user) throw new Error('user not found')
+    // perform the read/check/update/upsert inside a transaction to avoid
+    // TOCTOU race conditions where multiple concurrent requests bypass cooldown
+  const now = new Date();
+  const nextTimestamp = new Date(Date.now() + PIXEL_COOLDOWN_MS);
+  const nowDate = now;
 
-    const now = new Date()
-    if (user.nextPlacementAt && now < user.nextPlacementAt) {
-      return user.nextPlacementAt
-    }
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({ where: { id: userId } });
+      if (!user) throw new NotFoundError('user not found');
 
-    const nowIso = new Date().toISOString()
-    const pixel = await prisma.canva.upsert({
-      where: { x_y: { x, y } },
-      create: { x, y, color: colorId, placedAt: nowIso },
-      update: { color: colorId, placedAt: nowIso },
+      if (user.nextPlacementAt && nowDate < user.nextPlacementAt) {
+        // blocked by cooldown — throw a typed error with the next allowed timestamp
+        throw new TooManyRequestsError('COOLDOWN', user.nextPlacementAt);
+      }
+
+      // upsert the pixel and update the user's nextPlacementAt in the same transaction
+      const pixel = await tx.canva.upsert({
+        where: { x_y: { x, y } },
+        create: { x, y, color: colorId, placedAt: nowDate },
+        update: { color: colorId, placedAt: nowDate },
+      });
+
+      await tx.user.update({ where: { id: userId }, data: { nextPlacementAt: nextTimestamp } });
+
+      return { pixel };
     })
-
-  const nextTimestamp = new Date(Date.now() + PIXEL_COOLDOWN_MS)
-  await prisma.user.update({ where: { id: userId }, data: { nextPlacementAt: nextTimestamp } })
-
-    const key = `${x},${y}`
-    const placedAt = nowIso
-    // keep in-memory latest changes for quick emission (optional)
-    pixelChanges.set(key, { x, y, color: colorId, placedAt })
-
-    // return both the next allowed timestamp and the pixel change timestamp (ISO strings)
-    return { nextTimestamp: nextTimestamp.toISOString(), placedAt }
+    return { pixel: { x: result.pixel.x, y: result.pixel.y, color: result.pixel.color, placedAt: result.pixel.placedAt.toISOString() }, nextTimestamp: toIso(nextTimestamp) };
   },
 
   /** Get pixels; if `since` provided, return only changes after that time. */
   getPixels: async (since) => {
-    if (!since) return prisma.canva.findMany()
+    // return ordered results; map placedAt to ISO strings
+    if (!since) {
+      const rows = await prisma.canva.findMany({ orderBy: { placedAt: 'asc' } });
+      return rows.map((r) => ({ x: r.x, y: r.y, color: r.color, placedAt: r.placedAt.toISOString() }));
+    }
 
-  const sinceDate = new Date(since)
-  if (Number.isNaN(sinceDate.getTime())) throw new Error('invalid since timestamp')
+    const sinceDate = new Date(since);
+    if (Number.isNaN(sinceDate.getTime())) throw new Error('invalid since timestamp');
 
-  // query the database for pixels with placedAt >= sinceDate (inclusive)
-  return prisma.canva.findMany({ where: { placedAt: { gte: sinceDate } } })
+    const rows = await prisma.canva.findMany({ where: { placedAt: { gte: sinceDate } }, orderBy: { placedAt: 'asc' } });
+    return rows.map((r) => ({ x: r.x, y: r.y, color: r.color, placedAt: r.placedAt.toISOString() }));
   }
 }
 
@@ -100,7 +110,39 @@ app.addConnectListener((socket) => app.joinChannel('anonymous', socket))
 
 // health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok' })
-})
+  res.json({ status: 'ok' });
+});
 
-app.httpServer.listen(8000, () => console.log(`App listening at http://localhost:8000`))
+// central error handler for transport layer (express-style)
+// expressX should support app.use for error handlers; if not, adapt to its API.
+app.use((err, req, res, next) => {
+  // if the handler receives a plain value, wrap it
+  const status = (err && err.status) || 500;
+  const name = (err && err.name) || 'Error';
+  const message = (err && err.message) || 'Internal server error';
+  const body = { error: name, message };
+  if (err && err.nextTimestamp) body.nextTimestamp = toIso(err.nextTimestamp);
+  res.status(status).json(body);
+});
+
+const server = app.httpServer.listen(8000, () => console.log(`App listening at http://localhost:8000`));
+
+// graceful shutdown: close HTTP server and disconnect Prisma
+const shutdown = async (signal) => {
+  console.log(`Received ${signal}, shutting down...`)
+  try {
+    server.close(() => console.log('HTTP server closed'));
+  } catch (e) {
+    console.error('Error closing server', e);
+  }
+  try {
+    await prisma.$disconnect();
+    console.log('Prisma disconnected');
+  } catch (e) {
+    console.error('Error disconnecting Prisma', e);
+  }
+  process.exit(0)
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'))
+process.on('SIGTERM', () => shutdown('SIGTERM'))

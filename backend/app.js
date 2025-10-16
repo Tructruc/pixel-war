@@ -5,15 +5,13 @@ import { ValidationError, NotFoundError, TooManyRequestsError } from './errors.j
 const app = expressX();
 const prisma = new PrismaClient();
 
-const PIXEL_COOLDOWN_MS = 5_000
-const MAX_X = 1023
-const MAX_Y = 1023
-const MAX_COLOR = 15
+const PIXEL_COOLDOWN_MS = 5_000;
+const MAX_X = 1023;
+const MAX_Y = 1023;
+const MAX_COLOR = 15;
 
-// small helpers
 const toIso = (d) => (d ? (d instanceof Date ? d.toISOString() : String(d)) : null);
-
-// in-memory change cache removed; DB is now the source of truth
+ 
 
 // User service methods
 const userMethods = {
@@ -55,38 +53,37 @@ const canvaMethods = {
     if (x < 0 || x > MAX_X || y < 0 || y > MAX_Y) throw new ValidationError(`x and y must be between 0 and ${MAX_X}`);
     if (colorId < 0 || colorId > MAX_COLOR) throw new ValidationError(`colorId must be between 0 and ${MAX_COLOR}`);
 
-    // perform the read/check/update/upsert inside a transaction to avoid
-    // TOCTOU race conditions where multiple concurrent requests bypass cooldown
   const now = new Date();
-  const nextTimestamp = new Date(Date.now() + PIXEL_COOLDOWN_MS);
-  const nowDate = now;
+    const nextTimestamp = new Date(Date.now() + PIXEL_COOLDOWN_MS);
 
-    const result = await prisma.$transaction(async (tx) => {
+    const pixel = await prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({ where: { id: userId } });
       if (!user) throw new NotFoundError('user not found');
 
-      if (user.nextPlacementAt && nowDate < user.nextPlacementAt) {
+      if (user.nextPlacementAt && now < user.nextPlacementAt) {
         // blocked by cooldown — throw a typed error with the next allowed timestamp
         throw new TooManyRequestsError('COOLDOWN', user.nextPlacementAt);
       }
 
-      // upsert the pixel and update the user's nextPlacementAt in the same transaction
-      const pixel = await tx.canva.upsert({
+      const p = await tx.canva.upsert({
         where: { x_y: { x, y } },
-        create: { x, y, color: colorId, placedAt: nowDate },
-        update: { color: colorId, placedAt: nowDate },
+        create: { x, y, color: colorId, placedAt: now },
+        update: { color: colorId, placedAt: now },
       });
 
       await tx.user.update({ where: { id: userId }, data: { nextPlacementAt: nextTimestamp } });
 
-      return { pixel };
-    })
-    return { pixel: { x: result.pixel.x, y: result.pixel.y, color: result.pixel.color, placedAt: result.pixel.placedAt.toISOString() }, nextTimestamp: toIso(nextTimestamp) };
+      return p;
+    });
+
+    return {
+      pixel: { x: pixel.x, y: pixel.y, color: pixel.color, placedAt: toIso(pixel.placedAt) },
+      nextTimestamp: toIso(nextTimestamp),
+    };
   },
 
   /** Get pixels; if `since` provided, return only changes after that time. */
   getPixels: async (since) => {
-    // return ordered results; map placedAt to ISO strings
     if (!since) {
       const rows = await prisma.canva.findMany({ orderBy: { placedAt: 'asc' } });
       return rows.map((r) => ({ x: r.x, y: r.y, color: r.color, placedAt: r.placedAt.toISOString() }));
@@ -108,26 +105,44 @@ app.service('Canva').publish(async () => ['anonymous'])
 
 app.addConnectListener((socket) => app.joinChannel('anonymous', socket))
 
-// health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// central error handler for transport layer (express-style)
-// expressX should support app.use for error handlers; if not, adapt to its API.
+// central error handler (safer)
 app.use((err, req, res, next) => {
-  // if the handler receives a plain value, wrap it
+  if (res.headersSent) {
+    // delegate to default Express handler if headers already sent
+    return next(err);
+  }
+
+  // Prefer explicit status on typed errors; fallback to 500
   const status = (err && err.status) || 500;
   const name = (err && err.name) || 'Error';
   const message = (err && err.message) || 'Internal server error';
+
+  // Server-side logging: include stack/traces for ops, but not for clients
+  console.error(`[error] ${req.method} ${req.originalUrl} -> ${status} ${name}: ${message}`);
+  if (err && err.stack) console.error(err.stack);
+
   const body = { error: name, message };
+
+  // include domain metadata (cooldown) if available; always format timestamp
   if (err && err.nextTimestamp) body.nextTimestamp = toIso(err.nextTimestamp);
+
+  // in production, avoid exposing internal error details (optionally tighten message)
+  if (process.env.NODE_ENV === 'production') {
+    // replace message for 500-level errors to avoid leaking internals
+    if (status >= 500 && name === 'Error') {
+      body.message = 'Internal server error';
+    }
+  }
+
   res.status(status).json(body);
 });
 
 const server = app.httpServer.listen(8000, () => console.log(`App listening at http://localhost:8000`));
 
-// graceful shutdown: close HTTP server and disconnect Prisma
 const shutdown = async (signal) => {
   console.log(`Received ${signal}, shutting down...`)
   try {

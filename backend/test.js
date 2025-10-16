@@ -12,9 +12,9 @@ const assert = (cond, msg) => {
   if (!cond) throw new Error(msg || 'assertion failed');
 };
 
-// helpers to wait until an ISO timestamp
-const waitUntilIso = async (iso) => {
-  const ms = new Date(iso).getTime() - Date.now();
+// helpers to wait until an epoch-ms timestamp
+const waitUntilEpoch = async (ts) => {
+  const ms = Number(ts) - Date.now();
   if (ms > 0) await sleep(ms + 20);
 };
 
@@ -27,7 +27,7 @@ async function placeWithRetry(userId, x, y, color) {
       if (resp && resp.success === false && resp.reason === 'COOLDOWN') {
         const nt = resp.nextTimestamp;
         console.log('placePixel blocked; will wait until', nt);
-        await waitUntilIso(nt);
+        await waitUntilEpoch(nt);
         continue;
       }
       // success
@@ -66,7 +66,7 @@ async function placeWithRetry(userId, x, y, color) {
         }
         if (nt) {
           console.log('placePixel blocked by server error; will wait until', nt);
-          await waitUntilIso(nt);
+          await waitUntilEpoch(nt);
           continue;
         }
       }

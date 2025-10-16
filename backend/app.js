@@ -10,7 +10,7 @@ const MAX_X = 1023;
 const MAX_Y = 1023;
 const MAX_COLOR = 15;
 
-const toIso = (d) => (d ? (d instanceof Date ? d.toISOString() : String(d)) : null);
+const toEpoch = (d) => (d ? (d instanceof Date ? d.getTime() : Number(d)) : null);
  
 
 // User service methods
@@ -29,7 +29,7 @@ const userMethods = {
     if (!userId) throw new ValidationError('userId is required');
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundError('user not found');
-    return toIso(user.nextPlacementAt);
+    return toEpoch(user.nextPlacementAt);
   },
 }
 
@@ -77,8 +77,8 @@ const canvaMethods = {
     });
 
     return {
-      pixel: { x: pixel.x, y: pixel.y, color: pixel.color, placedAt: toIso(pixel.placedAt) },
-      nextTimestamp: toIso(nextTimestamp),
+      pixel: { x: pixel.x, y: pixel.y, color: pixel.color, placedAt: toEpoch(pixel.placedAt) },
+      nextTimestamp: toEpoch(nextTimestamp),
     };
   },
 
@@ -86,14 +86,14 @@ const canvaMethods = {
   getPixels: async (since) => {
     if (!since) {
       const rows = await prisma.canva.findMany({ orderBy: { placedAt: 'asc' } });
-      return rows.map((r) => ({ x: r.x, y: r.y, color: r.color, placedAt: r.placedAt.toISOString() }));
+      return rows.map((r) => ({ x: r.x, y: r.y, color: r.color, placedAt: r.placedAt.getTime() }));
     }
 
     const sinceDate = new Date(since);
     if (Number.isNaN(sinceDate.getTime())) throw new Error('invalid since timestamp');
 
     const rows = await prisma.canva.findMany({ where: { placedAt: { gte: sinceDate } }, orderBy: { placedAt: 'asc' } });
-    return rows.map((r) => ({ x: r.x, y: r.y, color: r.color, placedAt: r.placedAt.toISOString() }));
+    return rows.map((r) => ({ x: r.x, y: r.y, color: r.color, placedAt: r.placedAt.getTime() }));
   }
 }
 

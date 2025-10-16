@@ -13,19 +13,19 @@ This backend exposes a small, socket-first API designed for real-time frontends.
 - Services and contracts
   - `User` service
     - authenticate(): Creates/authenticates a new user and returns { id: string }.
-    - getNextPlaceTime(userId): Returns an ISO timestamp string (e.g. "2025-10-13T17:53:46.383Z") or null when the user can place immediately.
+    - getNextPlaceTime(userId): Returns an epoch timestamp in milliseconds (number) or null when the user can place immediately.
 
   - `Canva` service
     - placePixel(userId, x, y, colorId): Attempts to place a pixel.
-      - Success response (transport payload): { pixel: { x: number, y: number, color: number, placedAt: ISOString }, nextTimestamp: ISOString }
-      - Cooldown behavior: when a user is on cooldown the server signals this as a transport-level error (HTTP 429 / TooManyRequestsError). The error response includes `nextTimestamp` (ISOString) which indicates when the user can next place a pixel.
-    - getPixels(since?): Returns an array of pixel objects ordered by placedAt ascending. When `since` (ISOString) is provided, only changes with placedAt >= since are returned. Pixel shape: { x: number, y: number, color: number, placedAt: ISOString }.
+  - Success response (transport payload): { pixel: { x: number, y: number, color: number, placedAt: number }, nextTimestamp: number }
+  - Cooldown behavior: when a user is on cooldown the server signals this as a transport-level error (HTTP 429 / TooManyRequestsError). The error response includes `nextTimestamp` (epoch ms number) which indicates when the user can next place a pixel.
+  - getPixels(since?): Returns an array of pixel objects ordered by placedAt ascending. When `since` (epoch ms number or valid date string) is provided, only changes with placedAt >= since are returned. Pixel shape: { x: number, y: number, color: number, placedAt: number }.
 
 - Events
   - The server publishes `placePixel` events to subscribed clients. The published payload is the pixel object itself: { x, y, color, placedAt } (not wrapped in a success envelope). Use these events to update the UI in real-time.
 
 - Timestamps and formats
-  - All timestamps are ISO-8601 strings in UTC (e.g. 2025-10-13T17:53:46.383Z). Convert to Date client-side with `new Date(iso)`.
+  - All timestamps are epoch milliseconds (numbers). Convert to Date client-side with `new Date(ms)`.
 
 - Concurrency & atomicity
   - Pixel placement and the user's next placement time are updated inside a single database transaction to avoid race conditions. This ensures at-most-one placement per user per cooldown window even under concurrent requests.

@@ -1,31 +1,48 @@
 <script setup>
-import { onMounted, onBeforeUnmount, ref, reactive } from "vue";
+import { onMounted, onBeforeUnmount, ref, reactive, watch} from "vue";
 
-const canvas = ref(null);
-const ctx = ref(null);
+// Constants
 const x_size = 1024;
 const y_size = 1024;
+const drag_threshold = 200; // ms
 
-// Data
-const pixels = ref([
-  { x: 10, y: 10, color: "red" },
-  { x: 20, y: 20, color: "blue" },
-  { x: 30, y: 30, color: "yellow" },
-  { x: 40, y: 40, color: "purple" },
-  { x: 50, y: 50, color: "orange" },
-]);
+// Defining props and emits
+const props = defineProps(["isSelecting", "pixels"]);
+const emit = defineEmits(["selected_pixel"]);
 
-// Camera state (world top-left and zoom)
+// Refs
+const canvas = ref(null);
+const ctx = ref(null);
+
 const cam = reactive({
   zoom: 30,
-  maxZoom: 120,
+  maxZoom: 200,
   viewX: 0,
   viewY: 0,
 });
 
+// Variables
 let dragging = false;
 let lastClientX = 0;
 let lastClientY = 0;
+let clickStartTime = 0;
+
+// Helpers
+function clamp(val, min, max) {
+  return Math.min(max, Math.max(min, val));
+}
+
+function getMousePos(evt) {
+  const c = canvas.value;
+  const rect = c.getBoundingClientRect();
+  // scale from CSS pixels to canvas pixels (handles zoom, CSS scaling, DPR)
+  const scaleX = c.width / rect.width;
+  const scaleY = c.height / rect.height;
+  return {
+    x: (evt.clientX - rect.left) * scaleX,
+    y: (evt.clientY - rect.top) * scaleY,
+  };
+}
 
 function draw() {
   const c = canvas.value;
@@ -34,24 +51,12 @@ function draw() {
 
   context.clearRect(0, 0, c.width, c.height);
 
-  for (const p of pixels.value) {
+  for (const p of props.pixels) {
     context.fillStyle = p.color;
     const sx = (p.x - cam.viewX) * cam.zoom;
     const sy = (p.y - cam.viewY) * cam.zoom;
     context.fillRect(sx, sy, cam.zoom, cam.zoom);
   }
-}
-
-function clamp(val, min, max) {
-  return Math.min(max, Math.max(min, val));
-}
-
-function getMousePos(evt) {
-  const rect = canvas.value.getBoundingClientRect();
-  return {
-    x: evt.clientX - rect.left,
-    y: evt.clientY - rect.top,
-  };
 }
 
 function zoomAt(mouseX, mouseY, factor) {
@@ -77,10 +82,30 @@ function onMouseDown(e) {
   dragging = true;
   lastClientX = e.clientX;
   lastClientY = e.clientY;
+  clickStartTime = Date.now();
+  if (canvas.value) {
+    canvas.value.style.cursor = "grabbing";
+  }
 }
 
 function onMouseMove(e) {
-  if (!dragging) return;
+  if (!dragging) {
+    if (props.isSelecting && canvas.value) {
+      const { x, y } = getMousePos(e);
+      const context = ctx.value;
+      draw();
+      context.strokeStyle = "black";
+      context.lineWidth = 2;
+      context.strokeRect(
+        Math.floor(cam.viewX + x / cam.zoom) * cam.zoom - cam.viewX * cam.zoom,
+        Math.floor(cam.viewY + y / cam.zoom) * cam.zoom - cam.viewY * cam.zoom,
+        cam.zoom,
+        cam.zoom
+      );
+    }
+
+    return;
+  }
   const dx = e.clientX - lastClientX;
   const dy = e.clientY - lastClientY;
 
@@ -100,9 +125,25 @@ function onMouseMove(e) {
   draw();
 }
 
-function onMouseUp() {
+function onMouseUp(e) {
   dragging = false;
+  const clickDuration = Date.now() - clickStartTime;
+
+  if (canvas.value) {
+    canvas.value.style.cursor = props.isSelecting ? "default" : "grab";
+  }
+
+  if (clickDuration < drag_threshold && props.isSelecting) {
+    const { x, y } = getMousePos(e);
+
+    // Convert to world/grid coords by offsetting with camera and dividing by zoom
+    const worldX = clamp(Math.floor(cam.viewX + x / cam.zoom), 0, x_size - 1);
+    const worldY = clamp(Math.floor(cam.viewY + y / cam.zoom), 0, y_size - 1);
+
+    emit("selected_pixel", { x: worldX, y: worldY });
+  }
 }
+
 
 function onWheel(e) {
   e.preventDefault();
@@ -111,23 +152,40 @@ function onWheel(e) {
   zoomAt(x, y, factor);
 }
 
-function onDblClick() {
-  cam.viewX = 0;
-  cam.viewY = 0;
-  cam.zoom = 10;
-  draw();
-}
+// Watchers
+watch(
+  () => props.isSelecting,
+  (newVal) => {
+    if (newVal) {
+      if (canvas.value) {
+        canvas.value.style.cursor = "default";
+      }
+    } else {
+      if (canvas.value) {
+        canvas.value.style.cursor = "grab";
+      }
+    }
+  }
+)
 
+watch(
+  () => props.pixels,
+  () => {
+    draw();
+  },
+  { deep: true }
+)
+
+// Hooks
 onMounted(() => {
   ctx.value = canvas.value.getContext("2d");
   draw();
 
-  // listeners
   canvas.value.addEventListener("mousedown", onMouseDown);
   window.addEventListener("mousemove", onMouseMove);
   window.addEventListener("mouseup", onMouseUp);
   canvas.value.addEventListener("wheel", onWheel, { passive: false });
-  canvas.value.addEventListener("dblclick", onDblClick);
+  //canvas.value.addEventListener("dblclick", onDblClick);
 });
 
 onBeforeUnmount(() => {
@@ -136,21 +194,16 @@ onBeforeUnmount(() => {
   window.removeEventListener("mousemove", onMouseMove);
   window.removeEventListener("mouseup", onMouseUp);
   canvas.value.removeEventListener("wheel", onWheel);
-  canvas.value.removeEventListener("dblclick", onDblClick);
+  //canvas.value.removeEventListener("dblclick", onDblClick);
 });
 </script>
 
 <template>
-  <canvas width="1000" height="1000" ref="canvas"></canvas>
+  <canvas width="1000" height="800" ref="canvas"></canvas>
 </template>
 
 <style scoped>
-canvas:active {
-  cursor: grabbing;
-}
-
 canvas {
   border: 1px solid #ddd;
-  cursor: grab;
 }
 </style>

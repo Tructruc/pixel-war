@@ -56,9 +56,50 @@ onMounted(async () => {
 </script>
 
 <template>
-  <Canvas :isSelecting="isSelecting" @selected_pixel="handleGreet" :pixels="pixels" />
-  <ColorSelector @color_selected="handleColorSelected" :currernt-color="currentColor" />
-  <Timer ref="timer" @timer_ended="isSelecting = true" />
+  <div class="app-container">
+    <Canvas :isSelecting="isSelecting" @selected_pixel="handleGreet" :pixels="pixels" />
+    <div class="overlay-controls">
+      <ColorSelector @color_selected="handleColorSelected" :currernt-color="currentColor" />
+      <Timer ref="timer" @timer_ended="isSelecting = true" />
+    </div>
+  </div>
 </template>
 
-<style scoped></style>
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+}
+</style>
+
+<style scoped>
+.app-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.overlay-controls {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  pointer-events: none;
+}
+
+.overlay-controls > * {
+  pointer-events: auto;
+}
+</style>

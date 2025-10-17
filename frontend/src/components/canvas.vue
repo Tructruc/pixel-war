@@ -27,6 +27,7 @@ let dragging = false;
 let lastClientX = 0;
 let lastClientY = 0;
 let clickStartTime = 0;
+let resizeObserver = null;
 
 // Helpers
 function clamp(val, min, max) {
@@ -43,6 +44,16 @@ function getMousePos(evt) {
     x: (evt.clientX - rect.left) * scaleX,
     y: (evt.clientY - rect.top) * scaleY,
   };
+}
+
+function resizeCanvas() {
+  const c = canvas.value;
+  if (!c) return;
+
+  c.width = window.innerWidth;
+  c.height = window.innerHeight;
+
+  draw();
 }
 
 function draw() {
@@ -181,7 +192,16 @@ watch(
 // Hooks
 onMounted(() => {
   ctx.value = canvas.value.getContext("2d");
-  draw();
+  
+  resizeCanvas();
+  
+  window.addEventListener("resize", resizeCanvas);
+  
+  // Use ResizeObserver for more precise resize detection
+  resizeObserver = new ResizeObserver(() => {
+    resizeCanvas();
+  });
+  resizeObserver.observe(canvas.value);
 
   canvas.value.addEventListener("mousedown", onMouseDown);
   window.addEventListener("mousemove", onMouseMove);
@@ -190,6 +210,12 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener("resize", resizeCanvas);
+  
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+  }
+  
   if (!canvas.value) return;
   canvas.value.removeEventListener("mousedown", onMouseDown);
   window.removeEventListener("mousemove", onMouseMove);
@@ -199,11 +225,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <canvas width="1000" height="800" ref="canvas"></canvas>
+  <canvas ref="canvas"></canvas>
 </template>
 
 <style scoped>
 canvas {
-  border: 1px solid #ddd;
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
 }
 </style>

@@ -1,22 +1,23 @@
 generator client {
-   provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 model User {
-   id              String    @id @default(uuid())
-   nextPlacementAt DateTime?
+  id              String    @id @default(uuid())
+  nextPlacementAt DateTime?
 }
 
 model Canva {
-   x         Int
-   y         Int
-   color     Int
-   placedAt  DateTime @default(now())
-   @@id([x, y])
-   @@index([placedAt])
+  x        Int
+  y        Int
+  color    Int
+  placedAt DateTime @default(now())
+
+  @@id([x, y])
+  @@index([placedAt])
 }
 
 datasource db {
-   provider = "sqlite"
-   url      = "file:./dev.db"
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }

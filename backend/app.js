@@ -29,7 +29,9 @@ const userMethods = {
     if (!userId) throw new ValidationError('userId is required');
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundError('user not found');
-    return toEpoch(user.nextPlacementAt);
+    const nextPlacementAt = user.nextPlacementAt;
+    if (!nextPlacementAt) return Date.now();
+    else return nextPlacementAt.getTime();
   },
 }
 

@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, onBeforeUnmount, ref, reactive, watch} from "vue";
+import colors from '@/constants/colors.js'
 
 // Constants
 const x_size = 1024;
@@ -52,7 +53,7 @@ function draw() {
   context.clearRect(0, 0, c.width, c.height);
 
   for (const p of props.pixels) {
-    context.fillStyle = p.color;
+    context.fillStyle = colors.colors[p.color];
     const sx = (p.x - cam.viewX) * cam.zoom;
     const sy = (p.y - cam.viewY) * cam.zoom;
     context.fillRect(sx, sy, cam.zoom, cam.zoom);
@@ -163,6 +164,7 @@ watch(
     } else {
       if (canvas.value) {
         canvas.value.style.cursor = "grab";
+        draw()
       }
     }
   }
@@ -185,7 +187,6 @@ onMounted(() => {
   window.addEventListener("mousemove", onMouseMove);
   window.addEventListener("mouseup", onMouseUp);
   canvas.value.addEventListener("wheel", onWheel, { passive: false });
-  //canvas.value.addEventListener("dblclick", onDblClick);
 });
 
 onBeforeUnmount(() => {
@@ -194,7 +195,6 @@ onBeforeUnmount(() => {
   window.removeEventListener("mousemove", onMouseMove);
   window.removeEventListener("mouseup", onMouseUp);
   canvas.value.removeEventListener("wheel", onWheel);
-  //canvas.value.removeEventListener("dblclick", onDblClick);
 });
 </script>
 

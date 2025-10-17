@@ -30,6 +30,10 @@ onMounted(() => {
   });
 
 function resetTimer(endTime) {
+  console.log(endTime, Date.now(), endTime < Date.now());
+  if (endTime/1000 <= Math.floor(Date.now()/1000)) {
+    emit('timer_ended');
+  }
   endTimestamp.value = endTime/1000;
 }
 

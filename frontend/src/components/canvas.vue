@@ -6,6 +6,7 @@ import colors from '@/constants/colors.js'
 const x_size = 1024;
 const y_size = 1024;
 const drag_threshold = 200; // ms
+const pixel_overlap = 0.5;
 
 // Defining props and emits
 const props = defineProps(["isSelecting", "pixels"]);
@@ -63,11 +64,14 @@ function draw() {
 
   context.clearRect(0, 0, c.width, c.height);
 
+  // To prevent anti-aliasing artifacts
+  context.imageSmoothingEnabled = false;
+
   for (const p of props.pixels) {
     context.fillStyle = colors.colors[p.color];
     const sx = (p.x - cam.viewX) * cam.zoom;
     const sy = (p.y - cam.viewY) * cam.zoom;
-    context.fillRect(sx, sy, cam.zoom, cam.zoom);
+    context.fillRect(sx, sy, cam.zoom + pixel_overlap, cam.zoom + pixel_overlap);
   }
 }
 

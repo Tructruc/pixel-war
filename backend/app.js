@@ -10,7 +10,7 @@ const MAX_X = 1023;
 const MAX_Y = 1023;
 const MAX_COLOR = 15;
 
-const toEpoch = (d) => (d ? (d instanceof Date ? d.getTime() : Number(d)) : null);
+const toEpoch = (d) => (d ? (d instanceof Date ? d.getTime() : Number(d)) : Date.now());
  
 
 // User service methods
@@ -29,9 +29,7 @@ const userMethods = {
     if (!userId) throw new ValidationError('userId is required');
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundError('user not found');
-    const nextPlacementAt = user.nextPlacementAt;
-    if (!nextPlacementAt) return Date.now();
-    else return nextPlacementAt.getTime();
+    return toEpoch(user.nextPlacementAt);
   },
 }
 
@@ -130,7 +128,7 @@ app.use((err, req, res, next) => {
   const body = { error: name, message };
 
   // include domain metadata (cooldown) if available; always format timestamp
-  if (err && err.nextTimestamp) body.nextTimestamp = toIso(err.nextTimestamp);
+  if (err && err.nextTimestamp) body.nextTimestamp = toEpoch(err.nextTimestamp);
 
   // in production, avoid exposing internal error details (optionally tighten message)
   if (process.env.NODE_ENV === 'production') {

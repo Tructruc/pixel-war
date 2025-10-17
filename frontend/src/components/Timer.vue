@@ -8,12 +8,16 @@ let timer = null;
 const emit = defineEmits(['timer_ended']);
 
 function convertSecondsToMSorS(time) {
-  if (time >= 60) {
-    const minutes = Math.floor(time / 60);
-    const seconds = time % 60;
-    return `${minutes}:${Math.round(seconds).toString().padStart(2, '0')}`;
+  const t = Number(time);
+  if (t === 0) return 'ready';
+  if (t >= 60) {
+    const minutes = Math.floor(t / 60);
+    const seconds = Math.floor(t % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  } else if (t > 0) {
+    return `${Math.round(t)}s`;
   } else {
-    return `${Math.round(time)}s`;
+    return '';
   }
 }
 
@@ -42,7 +46,45 @@ defineExpose(
 )
 </script>
 
-<template>{{
-  convertSecondsToMSorS(time)}}</template>
+<template>
+  <div class="timer-wrapper">
+    <div class="timer-container">
+      <span class="timer-text">{{ convertSecondsToMSorS(time) }}</span>
+    </div>
+  </div>
+</template>
 
-<style scoped></style>
+<style scoped>
+.timer-wrapper {
+  display: flex;
+  justify-content: center; /* horizontal */
+  align-items: center;     /* vertical */
+  width: 100%;
+  height: 100%;
+}
+
+.timer-container {
+  margin: 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #1e293b;
+  color: #f8fafc;
+  font-size: 1.5rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  padding: 0.5rem 1rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  transition: all 0.3s ease;
+  min-width: 80px;
+}
+
+.timer-container:hover {
+  transform: scale(1.05);
+  background-color: #334155;
+}
+
+.timer-text {
+  letter-spacing: 1px;
+}
+</style>

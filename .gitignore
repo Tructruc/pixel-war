@@ -32,6 +32,7 @@ Thumbs.db
 /backend/tmp/
 /backend/.env
 /backend/.DS_Store
+/backend/prisma/dev.db
 
 # ============================
 # Frontend (Vue)

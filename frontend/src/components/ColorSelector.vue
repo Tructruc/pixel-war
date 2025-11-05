@@ -10,19 +10,24 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['color_selected'])
+const emit = defineEmits(['color_selected', 'open', 'close'])
 
 // local state: whether the palette is open
 const open = ref(false)
 
 function togglePalette() {
   open.value = !open.value
+  if (open.value) emit('open')
+  else emit('close')
 }
 
 function selectColor(index) {
   // emit the selected index so parent can update its state
   emit('color_selected', index)
-  open.value = false
+  if (open.value) {
+    open.value = false
+    emit('close')
+  }
 }
 
 // click-outside handler to close the palette
@@ -31,7 +36,10 @@ function onClickOutside(e) {
   const trigger = document.getElementById('color-trigger')
   if (!palette || !trigger) return
   if (!palette.contains(e.target) && !trigger.contains(e.target)) {
-    open.value = false
+    if (open.value) {
+      open.value = false
+      emit('close')
+    }
   }
 }
 
@@ -90,13 +98,9 @@ const columns = computed(() => {
 .palette {
   /* no absolute positioning: palette replaces the trigger in the flow */
   display: grid;
-  grid-auto-rows: 2.6em;
+  grid-auto-rows: 2em;
   gap: 0.3em;
-  padding: 0.4em;
-  background: #fff;
-  border: 1px solid rgba(0,0,0,0.15);
-  border-radius: 6px;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+  padding: 0.2em;
 }
 
 .palette-color {
@@ -105,6 +109,11 @@ const columns = computed(() => {
   border-radius: 0.4em;
   border: 1px solid rgba(0,0,0,0.07);
   cursor: pointer;
+}
+
+.palette-color:hover {
+  transform: scale(1.1);
+  border-color: rgba(0,0,0,0.2);
 }
 
 </style>

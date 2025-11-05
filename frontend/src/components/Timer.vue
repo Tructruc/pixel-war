@@ -68,21 +68,15 @@ defineExpose(
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background-color: #1e293b;
   color: #f8fafc;
   font-size: 1.5rem;
   font-weight: 600;
   border-radius: 9999px;
   padding: 0.5rem 1rem;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
   transition: all 0.3s ease;
   min-width: 80px;
 }
 
-.timer-container:hover {
-  transform: scale(1.05);
-  background-color: #334155;
-}
 
 .timer-text {
   letter-spacing: 1px;

@@ -1,15 +1,14 @@
 <script setup>
 import Canvas from '@/components/canvas.vue'
 import { onMounted, ref } from 'vue'
-import ColorSelector from '@/components/ColorSelector.vue'
-import Timer from '@/components/Timer.vue'
+import Controls from '@/components/Controls.vue'
 import { io } from 'socket.io-client'
 import expressXClient from '@jcbuisson/express-x-client'
 
 const isSelecting = ref(false)
 var currentColor = ref(1)
 const pixels = ref([])
-const timer = ref(null)
+const controls = ref(null)
 const socket = io( )
 const app = expressXClient(socket)
 
@@ -24,7 +23,7 @@ async function handleGreet(position) {
     position.y,
     currentColor.value);
   let newNextTime = await app.service("User").getNextPlaceTime(userId);
-  timer.value.resetTimer(newNextTime);
+  if (controls.value && controls.value.resetTimer) controls.value.resetTimer(newNextTime);
   isSelecting.value = false;
 }
 function handleColorSelected(color) {
@@ -51,7 +50,7 @@ onMounted(async () => {
   })
 
   let nextTime = await app.service("User").getNextPlaceTime(userId);
-  timer.value.resetTimer(nextTime);
+  if (controls.value && controls.value.resetTimer) controls.value.resetTimer(nextTime);
 })
 </script>
 
@@ -59,8 +58,7 @@ onMounted(async () => {
   <div class="app-container">
     <Canvas :isSelecting="isSelecting" @selected_pixel="handleGreet" :pixels="pixels" />
     <div class="overlay-controls">
-      <ColorSelector @color_selected="handleColorSelected" :currernt-color="currentColor" />
-      <Timer ref="timer" @timer_ended="isSelecting = true" />
+      <Controls ref="controls" @color_selected="handleColorSelected" @timer_ended="isSelecting = true" :currernt-color="currentColor" />
     </div>
   </div>
 </template>
@@ -90,11 +88,12 @@ html, body {
 
 .overlay-controls {
   position: absolute;
-  top: 20px;
-  left: 20px;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 10;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 20px;
   pointer-events: none;
 }

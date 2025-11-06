@@ -71,6 +71,7 @@ defineExpose({ resetTimer })
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 5px;
   background-color: #1e293b;
   color: #f8fafc;
   font-size: 1.5rem;

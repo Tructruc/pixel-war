@@ -81,9 +81,10 @@ const columns = computed(() => {
 
 <style scoped>
 .color-selector {
-  /* use grid so trigger and palette share the same place in flow */
-  display: inline-grid;
-  place-items: center;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .current-color {
@@ -96,11 +97,18 @@ const columns = computed(() => {
 }
 
 .palette {
-  /* no absolute positioning: palette replaces the trigger in the flow */
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
   display: grid;
-  grid-auto-rows: 2em;
-  gap: 0.3em;
-  padding: 0.2em;
+  grid-auto-rows: auto;
+  gap: 0.4em;
+  padding: 0.5em;
+  background-color: #1e293b;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+  z-index: 100;
 }
 
 .palette-color {
@@ -109,6 +117,7 @@ const columns = computed(() => {
   border-radius: 0.4em;
   border: 1px solid rgba(0,0,0,0.07);
   cursor: pointer;
+  transition: transform 0.2s ease;
 }
 
 .palette-color:hover {

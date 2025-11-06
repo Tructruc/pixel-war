@@ -48,7 +48,7 @@ defineExpose(
 
 <template>
   <div class="timer-wrapper">
-    <div class="timer-container">
+    <div class="timer-container" :class="{ 'ready': time === 0 }">
       <span class="timer-text">{{ convertSecondsToMSorS(time) }}</span>
     </div>
   </div>
@@ -71,12 +71,37 @@ defineExpose(
   color: #f8fafc;
   font-size: 1.5rem;
   font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   border-radius: 9999px;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.8rem;
   transition: all 0.3s ease;
-  min-width: 80px;
+  min-width: fit-content;
+  background: rgba(100, 100, 100, 0.3);
 }
 
+.timer-container.ready {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+  animation: pulse 2s ease-in-out infinite;
+  color: white;
+  font-weight: 800;
+  font-size: 1.25rem;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  padding: 0.75rem 1.5rem;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+  }
+  50% {
+    transform: scale(1.0);
+    box-shadow: 0 0 30px rgba(16, 185, 129, 0.8);
+  }
+}
 
 .timer-text {
   letter-spacing: 1px;

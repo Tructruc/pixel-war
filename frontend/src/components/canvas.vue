@@ -19,6 +19,7 @@ const ctx = ref(null);
 const cam = reactive({
   zoom: 30,
   maxZoom: 200,
+  minZoom: 1,
   viewX: 0,
   viewY: 0,
 });
@@ -77,19 +78,20 @@ function draw() {
 
 function zoomAt(mouseX, mouseY, factor) {
   const oldZoom = cam.zoom;
-  const newZoom = clamp(oldZoom * factor, 0, cam.maxZoom);
+  const newZoom = clamp(oldZoom * factor, cam.minZoom, cam.maxZoom);
   if (newZoom === oldZoom) return;
 
-  const newX = clamp(cam.viewX - mouseX / newZoom + mouseX / oldZoom, 0, x_size - canvas.value.width / newZoom);
-  const newY = clamp(cam.viewY - mouseY / newZoom + mouseY / oldZoom, 0, y_size - canvas.value.height / newZoom);
+  const newX = cam.viewX - mouseX / newZoom + mouseX / oldZoom;
+  const newY = cam.viewY - mouseY / newZoom + mouseY / oldZoom;
 
-  if (newX < 0 || newX >= x_size - canvas.value.width / newZoom) return;
-  if (newY < 0 || newY >= y_size - canvas.value.height / newZoom) return;
+  // Calculate max view bounds (how far we can see based on zoom)
+  const maxViewX = Math.max(0, x_size - canvas.value.width / newZoom);
+  const maxViewY = Math.max(0, y_size - canvas.value.height / newZoom);
 
+  // Clamp the view position to valid bounds
+  cam.viewX = clamp(newX, 0, maxViewX);
+  cam.viewY = clamp(newY, 0, maxViewY);
   cam.zoom = newZoom;
-
-  cam.viewX = newX;
-  cam.viewY = newY;
 
   draw();
 }

@@ -2,9 +2,11 @@
 import Canvas from '@/components/canvas.vue'
 import { onMounted, ref } from 'vue'
 import Controls from '@/components/Controls.vue'
+import Splash from '@/components/Splash.vue'
 import { io } from 'socket.io-client'
 import expressXClient from '@jcbuisson/express-x-client'
 
+const showSplash = ref(true)
 const isSelecting = ref(false)
 var currentColor = ref(1)
 const pixels = ref([])
@@ -31,6 +33,11 @@ function handleColorSelected(color) {
 }
 
 onMounted(async () => {
+  // Hide splash screen after 3 seconds
+  setTimeout(() => {
+    showSplash.value = false
+  }, 3000)
+
   const map = await app.service('Canva').getPixels()
   pixels.value = map
   if (localStorage.getItem("userId")) {
@@ -55,7 +62,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="app-container">
+  <Splash v-if="showSplash" />
+  <div v-else class="app-container">
     <Canvas :isSelecting="isSelecting" @selected_pixel="handleGreet" :pixels="pixels" />
     <div class="overlay-controls">
       <Controls ref="controls" @color_selected="handleColorSelected" @timer_ended="isSelecting = true" :currernt-color="currentColor" />

@@ -63,7 +63,7 @@ onMounted(async () => {
 
 <template>
   <Splash v-if="showSplash" />
-  <div v-else class="app-container">
+  <div class="app-container">
     <Canvas :isSelecting="isSelecting" @selected_pixel="handleGreet" :pixels="pixels" />
     <div class="overlay-controls">
       <Controls ref="controls" @color_selected="handleColorSelected" @timer_ended="isSelecting = true" :currernt-color="currentColor" />

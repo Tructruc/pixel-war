@@ -39,6 +39,9 @@ function resetTimer(endTime) {
     emit('timer_ended');
   }
   endTimestamp.value = endTime/1000;
+  // Update time immediately to ensure we capture the positive state
+  // This prevents missing the transition for short timers (e.g. 1s)
+  time.value = Math.max(0, endTimestamp.value - Math.floor(Date.now()/1000));
 }
 
 defineExpose(

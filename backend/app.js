@@ -5,13 +5,13 @@ import { ValidationError, NotFoundError, TooManyRequestsError } from './errors.j
 const app = expressX();
 const prisma = new PrismaClient();
 
-const PIXEL_COOLDOWN_MS = 5_000;
+const PIXEL_COOLDOWN_MS = 1_000;
 const MAX_X = 1023;
 const MAX_Y = 1023;
 const MAX_COLOR = 15;
 
 const toEpoch = (d) => (d ? (d instanceof Date ? d.getTime() : Number(d)) : Date.now());
- 
+
 
 // User service methods
 const userMethods = {
@@ -53,7 +53,7 @@ const canvaMethods = {
     if (x < 0 || x > MAX_X || y < 0 || y > MAX_Y) throw new ValidationError(`x and y must be between 0 and ${MAX_X}`);
     if (colorId < 0 || colorId > MAX_COLOR) throw new ValidationError(`colorId must be between 0 and ${MAX_COLOR}`);
 
-  const now = new Date();
+    const now = new Date();
     const nextTimestamp = new Date(Date.now() + PIXEL_COOLDOWN_MS);
 
     const pixel = await prisma.$transaction(async (tx) => {

@@ -12,7 +12,7 @@ const drag_threshold = 200; // ms
 const pixel_overlap = 0.5;
 
 // Defining props and emits
-const props = defineProps(["isSelecting", "pixels", "currentTemplate", "rotation"]);
+const props = defineProps(["isSelecting", "pixels", "currentTemplate", "rotation", "pixelVersion"]);
 const emit = defineEmits(["selected_pixel", "rotate_shape"]);
 
 // Refs
@@ -219,6 +219,41 @@ function onContextMenu(e) {
   }
 }
 
+function onTouchStart(e) {
+  if (e.touches.length === 1) {
+    e.preventDefault(); // Prevent scrolling
+    const touch = e.touches[0];
+    onMouseDown({
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      preventDefault: () => {}
+    });
+  }
+}
+
+function onTouchMove(e) {
+  if (e.touches.length === 1) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    onMouseMove({
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      preventDefault: () => {}
+    });
+  }
+}
+
+function onTouchEnd(e) {
+  if (e.changedTouches.length > 0) {
+    const touch = e.changedTouches[0];
+    onMouseUp({
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      preventDefault: () => {}
+    });
+  }
+}
+
 function onWheel(e) {
   e.preventDefault();
   const { x, y } = getMousePos(e);
@@ -244,11 +279,18 @@ watch(
 )
 
 watch(
+  () => props.pixelVersion,
+  () => {
+    requestRedraw();
+  }
+)
+
+// Watch for full array replacement (initial load)
+watch(
   () => props.pixels,
   () => {
     requestRedraw();
-  },
-  { deep: true }
+  }
 )
 
 // Hooks
@@ -266,8 +308,14 @@ onMounted(() => {
   resizeObserver.observe(canvas.value);
 
   canvas.value.addEventListener("mousedown", onMouseDown);
+  canvas.value.addEventListener("touchstart", onTouchStart, { passive: false });
+  
   window.addEventListener("mousemove", onMouseMove);
+  window.addEventListener("touchmove", onTouchMove, { passive: false });
+  
   window.addEventListener("mouseup", onMouseUp);
+  window.addEventListener("touchend", onTouchEnd);
+  
   canvas.value.addEventListener("wheel", onWheel, { passive: false });
   canvas.value.addEventListener("contextmenu", onContextMenu);
 });
@@ -286,8 +334,14 @@ onBeforeUnmount(() => {
   
   if (!canvas.value) return;
   canvas.value.removeEventListener("mousedown", onMouseDown);
+  canvas.value.removeEventListener("touchstart", onTouchStart);
+  
   window.removeEventListener("mousemove", onMouseMove);
+  window.removeEventListener("touchmove", onTouchMove);
+  
   window.removeEventListener("mouseup", onMouseUp);
+  window.removeEventListener("touchend", onTouchEnd);
+  
   canvas.value.removeEventListener("wheel", onWheel);
   canvas.value.removeEventListener("contextmenu", onContextMenu);
 });

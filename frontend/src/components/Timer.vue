@@ -30,15 +30,18 @@ onMounted(() => {
        if (time.value === 0 && oldTime > 0) {
           emit('timer_ended');
        }
-    }, 1000);
+    }, 100);
   });
 
 function resetTimer(endTime) {
-  console.log(endTime, Date.now(), endTime < Date.now());
-  if (endTime/1000 <= Math.floor(Date.now()/1000)) {
+  endTimestamp.value = endTime/1000;
+  
+  let currentTime = Math.floor(Date.now()/1000);
+  time.value = Math.max(0, endTimestamp.value - currentTime);
+  
+  if (time.value === 0) {
     emit('timer_ended');
   }
-  endTimestamp.value = endTime/1000;
 }
 
 defineExpose(

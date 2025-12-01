@@ -2,9 +2,8 @@
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import colors from '@/constants/colors.js'
 
-// keep the original prop name for compatibility with existing parent usage
 const props = defineProps({
-  currerntColor: {
+  currentColor: {
     type: Number,
     required: true
   }
@@ -12,7 +11,6 @@ const props = defineProps({
 
 const emit = defineEmits(['color_selected', 'open', 'close'])
 
-// local state: whether the palette is open
 const open = ref(false)
 
 function togglePalette() {
@@ -22,7 +20,6 @@ function togglePalette() {
 }
 
 function selectColor(index) {
-  // emit the selected index so parent can update its state
   emit('color_selected', index)
   if (open.value) {
     open.value = false
@@ -30,7 +27,6 @@ function selectColor(index) {
   }
 }
 
-// click-outside handler to close the palette
 function onClickOutside(e) {
   const palette = document.getElementById('color-palette')
   const trigger = document.getElementById('color-trigger')
@@ -46,7 +42,6 @@ function onClickOutside(e) {
 onMounted(() => window.addEventListener('click', onClickOutside))
 onBeforeUnmount(() => window.removeEventListener('click', onClickOutside))
 
-// compute number of columns so palette is rendered in two rows
 const columns = computed(() => {
   const total = Array.isArray(colors?.colors) ? colors.colors.length : 0
   return Math.ceil(total / 2) || 1
@@ -60,10 +55,10 @@ const columns = computed(() => {
       v-if="!open"
       id="color-trigger"
       class="current-color"
-      :style="{ backgroundColor: colors.colors[props.currerntColor] || 'transparent', border: '2px solid #333' }"
+      :style="{ backgroundColor: colors.colors[props.currentColor] || 'transparent', border: '2px solid #333' }"
       @click.stop="togglePalette"
       :aria-expanded="open"
-      :aria-label="`Selected color ${props.currerntColor}`"
+      :aria-label="`Selected color ${props.currentColor}`"
     />
 
     <div v-else id="color-palette" class="palette" role="list" :style="{ gridTemplateColumns: `repeat(${columns}, auto)` }">
@@ -71,7 +66,7 @@ const columns = computed(() => {
         v-for="(color, id) in colors.colors"
         :key="id"
         class="palette-color"
-        :style="{ backgroundColor: color, outline: props.currerntColor === id ? '3px solid black' : 'none' }"
+        :style="{ backgroundColor: color, outline: props.currentColor === id ? '3px solid black' : 'none' }"
         @click.stop="selectColor(id)"
         :aria-label="`Select color ${id}`"
       />

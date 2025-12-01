@@ -1,27 +1,44 @@
 import { ref, computed } from 'vue'
 import { templates as defaultTemplates } from '@/constants/templates.js'
-import { client } from '@/services/api.js' // We'll need to create this or use existing client access
+import { client } from '@/services/api.js'
 
 const templates = ref({})
+const templateOwners = ref({})
 const isLoading = ref(false)
 const error = ref(null)
+let listenersSetup = false
 
 export function useTemplates() {
-    // Initialize with default templates
     if (Object.keys(templates.value).length === 0) {
         templates.value = { ...defaultTemplates }
+    }
+
+    if (!listenersSetup) {
+        listenersSetup = true
+
+        client.service('Template').on('create', (template) => {
+            templates.value[template.name] = template.pixels
+            templateOwners.value[template.name] = template.creatorId
+        })
+
+        client.service('Template').on('remove', (result) => {
+            const name = result.name
+            if (name) {
+                delete templates.value[name]
+                delete templateOwners.value[name]
+            }
+        })
     }
 
     const fetchTemplates = async () => {
         isLoading.value = true
         try {
-            // Assuming client.service('Template').find() works like other services
-            // We might need to adjust based on how the client is exposed
             const remoteTemplates = await client.service('Template').find()
 
             const merged = { ...defaultTemplates }
             remoteTemplates.forEach(t => {
                 merged[t.name] = t.pixels
+                templateOwners.value[t.name] = t.creatorId
             })
 
             templates.value = merged
@@ -33,10 +50,11 @@ export function useTemplates() {
         }
     }
 
-    const createTemplate = async (name, pixels) => {
+    const createTemplate = async (userId, name, pixels) => {
         try {
-            const newTemplate = await client.service('Template').create(name, pixels)
+            const newTemplate = await client.service('Template').create(userId, name, pixels)
             templates.value[newTemplate.name] = newTemplate.pixels
+            templateOwners.value[newTemplate.name] = newTemplate.creatorId
             return newTemplate
         } catch (e) {
             console.error('Failed to create template:', e)
@@ -44,11 +62,24 @@ export function useTemplates() {
         }
     }
 
+    const deleteTemplate = async (userId, name) => {
+        try {
+            await client.service('Template').remove(userId, name)
+            delete templates.value[name]
+            delete templateOwners.value[name]
+        } catch (e) {
+            console.error('Failed to delete template:', e)
+            throw e
+        }
+    }
+
     return {
         templates: computed(() => templates.value),
+        templateOwners: computed(() => templateOwners.value),
         isLoading,
         error,
         fetchTemplates,
-        createTemplate
+        createTemplate,
+        deleteTemplate
     }
 }

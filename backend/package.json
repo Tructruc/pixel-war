@@ -1,31 +1,21 @@
 {
-  "name": "",
+  "name": "pixel-war-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Real-time collaborative pixel art canvas backend",
+  "main": "app.js",
   "type": "module",
   "license": "AGPL-version-3.0",
-  "private": false,
+  "private": true,
   "engines": {
     "node": ">= 14.0.0",
     "npm": ">= 6.0.0"
   },
-  "homepage": "",
-  "repository": {
-    "type": "git",
-    "url": ""
-  },
-  "bugs": "",
-  "keywords": [],
-  "author": {
-    "name": "",
-    "email": "",
-    "url": ""
-  },
-  "contributors": [],
   "scripts": {
-    "dev": "",
-    "test": ""
+    "dev": "node app.js",
+    "start": "node app.js",
+    "db:push": "npx prisma db push",
+    "db:studio": "npx prisma studio",
+    "db:reset": "npx prisma db push --force-reset"
   },
   "dependencies": {
     "@jcbuisson/express-x": "^2.1.20",

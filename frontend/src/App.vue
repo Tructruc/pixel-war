@@ -9,15 +9,14 @@ import { useTemplates } from '@/composables/useTemplates.js'
 
 const showSplash = ref(true)
 const pixels = ref([])
+const pixelVersion = ref(0)
 const controls = ref(null)
 
-// Use centralized state management
 const state = useAppState()
 const { templates } = useTemplates()
 
 let userId;
 
-// Helper to rotate a point (x, y) by 90 degrees * rotation
 function rotatePoint(x, y, r) {
   switch (r) {
     case 1: return { x: -y, y: x }
@@ -35,7 +34,6 @@ async function processQueue() {
 
   const pixel = state.dequeue()
   
-  // Use the color from the template if specified, otherwise use current selected color
   const colorToUse = pixel.color !== null ? pixel.color : state.currentColor.value
 
   await app
@@ -51,7 +49,6 @@ async function processQueue() {
   state.setNextPlaceTime(newNextTime);
   if (controls.value && controls.value.resetTimer) controls.value.resetTimer(newNextTime);
   
-  // Check if we just finished - immediately update UI
   if (state.drawingQueue.value.length === 0) {
     state.finishDrawing()
   }
@@ -70,12 +67,10 @@ async function handleGreet(position) {
     state.setNextPlaceTime(newNextTime);
     if (controls.value && controls.value.resetTimer) controls.value.resetTimer(newNextTime);
   } else {
-    // Shape drawing logic
     state.startDrawing()
     const shapePixels = templates.value[state.currentTemplate.value]
     if (!shapePixels) return
 
-    // Add all pixels to queue with rotation
     const pixelsToQueue = shapePixels.map(p => {
       const rotated = rotatePoint(p.x, p.y, state.rotation.value)
       return {
@@ -87,8 +82,7 @@ async function handleGreet(position) {
 
     state.addToQueue(pixelsToQueue)
 
-    // Start processing
-    await processQueue()
+    processQueue()
   }
 }
 
@@ -101,17 +95,25 @@ function handleTimerEnded() {
 }
 
 onMounted(async () => {
-  // Hide splash screen after 3 seconds
   setTimeout(() => {
     showSplash.value = false
   }, 3000)
 
   const map = await app.service('Canva').getPixels()
   pixels.value = map
-  if (localStorage.getItem("userId")) {
-    userId = localStorage.getItem("userId");
-  } else {
-    var user = await app.service('User').authenticate()
+  const storedId = localStorage.getItem("userId");
+  if (storedId) {
+    try {
+      await app.service("User").getNextPlaceTime(storedId);
+      userId = storedId;
+    } catch (e) {
+      console.warn("Invalid user ID, re-authenticating...", e);
+      localStorage.removeItem("userId");
+    }
+  }
+  
+  if (!userId) {
+    const user = await app.service('User').authenticate()
     userId = user.id
     localStorage.setItem("userId", userId);
   }
@@ -122,6 +124,7 @@ onMounted(async () => {
       pixels.value.splice(index, 1)
     }
     pixels.value.push({ x: p.x, y: p.y, color: p.color })
+    pixelVersion.value++
   })
 
   let nextTime = await app.service("User").getNextPlaceTime(userId);
@@ -140,6 +143,7 @@ onMounted(async () => {
       @selected_pixel="handleGreet" 
       @rotate_shape="state.rotateShape()"
       :pixels="pixels" 
+      :pixelVersion="pixelVersion"
     />
     <div class="overlay-controls">
       <Controls 

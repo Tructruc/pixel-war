@@ -101,7 +101,12 @@ async function save() {
       color: grid[p.y + centerY][p.x + centerX] === 'adaptive' ? null : grid[p.y + centerY][p.x + centerX]
     }))
 
-    await createTemplate(name.value, finalPixels)
+    const userId = localStorage.getItem('userId')
+    if (!userId) {
+      alert('User ID not found')
+      return
+    }
+    await createTemplate(userId, name.value, finalPixels)
     emit('close')
   } catch (e) {
     alert('Failed to save template')

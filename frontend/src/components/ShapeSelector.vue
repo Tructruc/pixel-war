@@ -1,11 +1,19 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import colorsPalette from '@/constants/colors.js'
+import { templates as defaultTemplates } from '@/constants/templates.js'
 import { useTemplates } from '@/composables/useTemplates.js'
 import TemplateCreator from '@/components/TemplateCreator.vue'
+import ConfirmModal from '@/components/ConfirmModal.vue'
 
-const { templates, fetchTemplates } = useTemplates()
+const { templates, fetchTemplates, deleteTemplate, templateOwners } = useTemplates()
 const showCreator = ref(false)
+const showDeleteConfirm = ref(false)
+const templateToDelete = ref(null)
+const userId = localStorage.getItem('userId')
+
+// Only allow deletion if user is the creator
+const canDelete = (name) => templateOwners.value[name] === userId
 
 const props = defineProps({
   currentTemplate: {
@@ -30,6 +38,23 @@ function selectTemplate(name) {
     open.value = false
     emit('close')
   }
+}
+
+async function handleDelete(name) {
+  templateToDelete.value = name
+  showDeleteConfirm.value = true
+}
+
+async function confirmDelete() {
+  if (!templateToDelete.value || !userId) return
+  
+  await deleteTemplate(userId, templateToDelete.value)
+  if (props.currentTemplate === templateToDelete.value) {
+    emit('template_selected', 'Pixel')
+  }
+  
+  showDeleteConfirm.value = false
+  templateToDelete.value = null
 }
 
 function onClickOutside(e) {
@@ -139,6 +164,19 @@ onBeforeUnmount(() => window.removeEventListener('click', onClickOutside))
             :style="pixel.style"
           ></div>
         </div>
+        
+        <!-- Delete button for custom templates -->
+        <div 
+          v-if="canDelete(name)" 
+          class="delete-btn"
+          @click.stop="handleDelete(name)"
+          title="Delete template"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </div>
       </button>
       
       <button 
@@ -154,6 +192,16 @@ onBeforeUnmount(() => window.removeEventListener('click', onClickOutside))
     </div>
     
     <TemplateCreator v-if="showCreator" @close="showCreator = false" />
+    
+    <ConfirmModal
+      v-if="showDeleteConfirm"
+      title="Delete Template"
+      :message="`Are you sure you want to delete '${templateToDelete}'? This action cannot be undone.`"
+      confirmText="Delete"
+      :isDestructive="true"
+      @confirm="confirmDelete"
+      @cancel="showDeleteConfirm = false"
+    />
   </div>
 </template>
 
@@ -239,6 +287,34 @@ onBeforeUnmount(() => window.removeEventListener('click', onClickOutside))
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative; /* For absolute positioning of delete button */
+}
+
+.shape-option:hover .delete-btn {
+  opacity: 1;
+}
+
+.delete-btn {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 16px;
+  height: 16px;
+  background: #ef4444;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  z-index: 10;
+  border: 1px solid #1e293b;
+}
+
+.delete-btn:hover {
+  transform: scale(1.1);
+  background: #dc2626;
 }
 
 .shape-option:hover {

@@ -91,7 +91,7 @@ defineExpose({ resetTimer })
           @color_selected="handleColorSelected"
           @open="handleColorPaletteOpen"
           @close="handlePaletteClose"
-          :currernt-color="state.currentColor.value"
+          :current-color="state.currentColor.value"
         />
       </template>
 

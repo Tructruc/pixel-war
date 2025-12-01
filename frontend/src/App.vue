@@ -5,31 +5,96 @@ import Controls from '@/components/Controls.vue'
 import Splash from '@/components/Splash.vue'
 import { io } from 'socket.io-client'
 import expressXClient from '@jcbuisson/express-x-client'
+import { templates } from '@/constants/templates.js'
+import { useAppState } from '@/composables/useAppState.js'
 
 const showSplash = ref(true)
-const isSelecting = ref(false)
-var currentColor = ref(1)
 const pixels = ref([])
 const controls = ref(null)
 const socket = io( )
 const app = expressXClient(socket)
 
+// Use centralized state management
+const state = useAppState()
+
 let userId;
 
-async function handleGreet(position) {
+// Helper to rotate a point (x, y) by 90 degrees * rotation
+function rotatePoint(x, y, r) {
+  switch (r) {
+    case 1: return { x: -y, y: x }
+    case 2: return { x: -x, y: -y }
+    case 3: return { x: y, y: -x }
+    default: return { x, y }
+  }
+}
+
+async function processQueue() {
+  if (state.drawingQueue.value.length === 0) {
+    state.finishDrawing()
+    return
+  }
+
+  const pixel = state.dequeue()
+  
+  // Use the color from the template if specified, otherwise use current selected color
+  const colorToUse = pixel.color !== null ? pixel.color : state.currentColor.value
+
   await app
     .service('Canva')
     .placePixel(
       userId,
-    position.x,
-    position.y,
-    currentColor.value);
+      pixel.x,
+      pixel.y,
+      colorToUse
+    );
+  
   let newNextTime = await app.service("User").getNextPlaceTime(userId);
+  state.setNextPlaceTime(newNextTime);
   if (controls.value && controls.value.resetTimer) controls.value.resetTimer(newNextTime);
-  isSelecting.value = false;
 }
-function handleColorSelected(color) {
-  currentColor.value = color
+
+async function handleGreet(position) {
+  if (state.currentTemplate.value === 'Pixel') {
+    await app
+      .service('Canva')
+      .placePixel(
+        userId,
+      position.x,
+      position.y,
+      state.currentColor.value);
+    let newNextTime = await app.service("User").getNextPlaceTime(userId);
+    state.setNextPlaceTime(newNextTime);
+    if (controls.value && controls.value.resetTimer) controls.value.resetTimer(newNextTime);
+  } else {
+    // Shape drawing logic
+    state.startDrawing()
+    const shapePixels = templates[state.currentTemplate.value]
+    if (!shapePixels) return
+
+    // Add all pixels to queue with rotation
+    const pixelsToQueue = shapePixels.map(p => {
+      const rotated = rotatePoint(p.x, p.y, state.rotation.value)
+      return {
+        x: position.x + rotated.x,
+        y: position.y + rotated.y,
+        color: p.color
+      }
+    })
+
+    state.addToQueue(pixelsToQueue)
+
+    // Start processing
+    await processQueue()
+  }
+}
+
+function handleTimerEnded() {
+  if (state.drawingQueue.value.length > 0) {
+    processQueue()
+  } else {
+    state.forceEnableSelection()
+  }
 }
 
 onMounted(async () => {
@@ -57,6 +122,7 @@ onMounted(async () => {
   })
 
   let nextTime = await app.service("User").getNextPlaceTime(userId);
+  state.setNextPlaceTime(nextTime)
   if (controls.value && controls.value.resetTimer) controls.value.resetTimer(nextTime);
 })
 </script>
@@ -64,9 +130,19 @@ onMounted(async () => {
 <template>
   <Splash v-if="showSplash" />
   <div class="app-container">
-    <Canvas :isSelecting="isSelecting" @selected_pixel="handleGreet" :pixels="pixels" />
+    <Canvas 
+      :isSelecting="state.canSelect.value" 
+      :currentTemplate="state.currentTemplate.value" 
+      :rotation="state.rotation.value"
+      @selected_pixel="handleGreet" 
+      @rotate_shape="state.rotateShape()"
+      :pixels="pixels" 
+    />
     <div class="overlay-controls">
-      <Controls ref="controls" @color_selected="handleColorSelected" @timer_ended="isSelecting = true" :currernt-color="currentColor" />
+      <Controls 
+        ref="controls" 
+        @timer_ended="handleTimerEnded" 
+      />
     </div>
   </div>
 </template>

@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, onBeforeUnmount, ref, reactive, watch} from "vue";
 import colors from '@/constants/colors.js'
+import { templates } from '@/constants/templates.js'
 
 // Constants
 const x_size = 1024;
@@ -9,8 +10,8 @@ const drag_threshold = 200; // ms
 const pixel_overlap = 0.5;
 
 // Defining props and emits
-const props = defineProps(["isSelecting", "pixels"]);
-const emit = defineEmits(["selected_pixel"]);
+const props = defineProps(["isSelecting", "pixels", "currentTemplate", "rotation"]);
+const emit = defineEmits(["selected_pixel", "rotate_shape"]);
 
 // Refs
 const canvas = ref(null);
@@ -30,6 +31,8 @@ let lastClientX = 0;
 let lastClientY = 0;
 let clickStartTime = 0;
 let resizeObserver = null;
+let rafId = null;
+let needsRedraw = false;
 
 // Helpers
 function clamp(val, min, max) {
@@ -58,6 +61,15 @@ function resizeCanvas() {
   draw();
 }
 
+function requestRedraw() {
+  if (needsRedraw) return;
+  needsRedraw = true;
+  rafId = requestAnimationFrame(() => {
+    draw();
+    needsRedraw = false;
+  });
+}
+
 function draw() {
   const c = canvas.value;
   const context = ctx.value;
@@ -68,7 +80,16 @@ function draw() {
   // To prevent anti-aliasing artifacts
   context.imageSmoothingEnabled = false;
 
+  // Viewport culling: only render visible pixels
+  const minX = Math.floor(cam.viewX);
+  const maxX = Math.ceil(cam.viewX + c.width / cam.zoom);
+  const minY = Math.floor(cam.viewY);
+  const maxY = Math.ceil(cam.viewY + c.height / cam.zoom);
+
   for (const p of props.pixels) {
+    // Skip pixels outside viewport
+    if (p.x < minX || p.x > maxX || p.y < minY || p.y > maxY) continue;
+    
     context.fillStyle = colors.colors[p.color];
     const sx = (p.x - cam.viewX) * cam.zoom;
     const sy = (p.y - cam.viewY) * cam.zoom;
@@ -93,7 +114,7 @@ function zoomAt(mouseX, mouseY, factor) {
   cam.viewY = clamp(newY, 0, maxViewY);
   cam.zoom = newZoom;
 
-  draw();
+  requestRedraw();
 }
 
 function onMouseDown(e) {
@@ -106,20 +127,46 @@ function onMouseDown(e) {
   }
 }
 
+function rotatePoint(x, y, r) {
+  switch (r) {
+    case 1: return { x: -y, y: x }
+    case 2: return { x: -x, y: -y }
+    case 3: return { x: y, y: -x }
+    default: return { x, y }
+  }
+}
+
 function onMouseMove(e) {
   if (!dragging) {
     if (props.isSelecting && canvas.value) {
       const { x, y } = getMousePos(e);
       const context = ctx.value;
+      // Must call draw() directly for preview, not requestRedraw()
+      // because we need to draw the preview strokes synchronously on top
       draw();
       context.strokeStyle = "black";
       context.lineWidth = 2;
-      context.strokeRect(
-        Math.floor(cam.viewX + x / cam.zoom) * cam.zoom - cam.viewX * cam.zoom,
-        Math.floor(cam.viewY + y / cam.zoom) * cam.zoom - cam.viewY * cam.zoom,
-        cam.zoom,
-        cam.zoom
-      );
+
+      const baseWorldX = Math.floor(cam.viewX + x / cam.zoom);
+      const baseWorldY = Math.floor(cam.viewY + y / cam.zoom);
+
+      const shapePixels = templates[props.currentTemplate || 'Pixel'] || templates['Pixel'];
+
+      for (const p of shapePixels) {
+        const rotated = rotatePoint(p.x, p.y, props.rotation || 0);
+        const targetX = baseWorldX + rotated.x;
+        const targetY = baseWorldY + rotated.y;
+        
+        // Only draw if within bounds (optional, but good for visual clarity)
+        // if (targetX < 0 || targetX >= x_size || targetY < 0 || targetY >= y_size) continue;
+
+        context.strokeRect(
+          targetX * cam.zoom - cam.viewX * cam.zoom,
+          targetY * cam.zoom - cam.viewY * cam.zoom,
+          cam.zoom,
+          cam.zoom
+        );
+      }
     }
 
     return;
@@ -140,7 +187,7 @@ function onMouseMove(e) {
 
   cam.viewY = viewY;
 
-  draw();
+  requestRedraw();
 }
 
 function onMouseUp(e) {
@@ -163,6 +210,13 @@ function onMouseUp(e) {
 }
 
 
+function onContextMenu(e) {
+  e.preventDefault();
+  if (props.isSelecting) {
+    emit("rotate_shape");
+  }
+}
+
 function onWheel(e) {
   e.preventDefault();
   const { x, y } = getMousePos(e);
@@ -181,7 +235,7 @@ watch(
     } else {
       if (canvas.value) {
         canvas.value.style.cursor = "grab";
-        draw()
+        requestRedraw()
       }
     }
   }
@@ -190,7 +244,7 @@ watch(
 watch(
   () => props.pixels,
   () => {
-    draw();
+    requestRedraw();
   },
   { deep: true }
 )
@@ -213,10 +267,16 @@ onMounted(() => {
   window.addEventListener("mousemove", onMouseMove);
   window.addEventListener("mouseup", onMouseUp);
   canvas.value.addEventListener("wheel", onWheel, { passive: false });
+  canvas.value.addEventListener("contextmenu", onContextMenu);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("resize", resizeCanvas);
+  
+  // Cancel pending animation frame
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId);
+  }
   
   if (resizeObserver) {
     resizeObserver.disconnect();
@@ -227,6 +287,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("mousemove", onMouseMove);
   window.removeEventListener("mouseup", onMouseUp);
   canvas.value.removeEventListener("wheel", onWheel);
+  canvas.value.removeEventListener("contextmenu", onContextMenu);
 });
 </script>
 

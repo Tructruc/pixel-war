@@ -91,11 +91,8 @@ function getPreviewPixels(shapeName) {
   })
 }
 
-// Compute number of columns so grid is rendered nicely
-const columns = computed(() => {
-  const total = Object.keys(templates.value).length
-  return Math.ceil(total / 2) || 1
-})
+// Not needed for horizontal layout
+const columns = 1
 
 onMounted(() => {
   window.addEventListener('click', onClickOutside)
@@ -124,7 +121,7 @@ onBeforeUnmount(() => window.removeEventListener('click', onClickOutside))
       </div>
     </button>
 
-    <div v-else id="shape-selector" class="selector-grid" role="list" :style="{ gridTemplateColumns: `repeat(${columns}, auto)` }">
+    <div v-else id="shape-selector" class="selector-grid" role="list">
       <button
         v-for="(shape, name) in templates"
         :key="name"
@@ -194,13 +191,40 @@ onBeforeUnmount(() => window.removeEventListener('click', onClickOutside))
   left: 50%;
   transform: translateX(-50%);
   display: grid;
-  grid-auto-rows: auto;
+  grid-template-rows: repeat(2, auto);
+  grid-auto-flow: column;
   gap: 0.4em;
   padding: 0.5em;
   background-color: #1e293b;
   border-radius: 12px;
   box-shadow: 0 8px 20px rgba(0,0,0,0.3);
   z-index: 100;
+  max-width: min(80vw, 600px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: #475569 #1e293b; /* Firefox */
+}
+
+/* Custom scrollbar for Webkit (Chrome, Safari, Edge) */
+.selector-grid::-webkit-scrollbar {
+  height: 6px;
+}
+
+.selector-grid::-webkit-scrollbar-track {
+  background: #1e293b;
+  border-radius: 4px;
+  margin: 0 8px;
+}
+
+.selector-grid::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 4px;
+  border: 2px solid #1e293b;
+}
+
+.selector-grid::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
 }
 
 .shape-option {

@@ -50,6 +50,11 @@ async function processQueue() {
   let newNextTime = await app.service("User").getNextPlaceTime(userId);
   state.setNextPlaceTime(newNextTime);
   if (controls.value && controls.value.resetTimer) controls.value.resetTimer(newNextTime);
+  
+  // Check if we just finished - immediately update UI
+  if (state.drawingQueue.value.length === 0) {
+    state.finishDrawing()
+  }
 }
 
 async function handleGreet(position) {

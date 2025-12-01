@@ -144,7 +144,7 @@ async function save() {
               v-for="(c, idx) in colors.colors" 
               :key="idx"
               class="color-swatch"
-              :class="{ active: selectedColor === idx }"
+              :class="{ active: selectedColor === idx && !isEraser && !isAdaptive }"
               :style="{ backgroundColor: c }"
               @click="selectedColor = idx; isEraser = false; isAdaptive = false"
             ></div>
@@ -152,7 +152,7 @@ async function save() {
             <!-- Adaptive Color Tool -->
             <div 
               class="color-swatch adaptive-color"
-              :class="{ active: isAdaptive }"
+              :class="{ active: isAdaptive && !isEraser }"
               @click="isAdaptive = true; isEraser = false"
               title="Adaptive Color (uses selected color when placing)"
             >
@@ -166,7 +166,7 @@ async function save() {
             <div 
               class="color-swatch eraser"
               :class="{ active: isEraser }"
-              @click="isEraser = true"
+              @click="isEraser = true; isAdaptive = false"
               title="Eraser"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -202,13 +202,23 @@ async function save() {
 
 .modal-content {
   background: #1e293b;
-  padding: 20px;
-  border-radius: 12px;
+  padding: 24px;
+  border-radius: 16px;
   color: white;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
   max-width: 90vw;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #f8fafc;
+  letter-spacing: -0.025em;
 }
 
 .form-group {
@@ -221,9 +231,23 @@ input {
   background: #334155;
   border: 1px solid #475569;
   color: white;
-  padding: 8px;
-  border-radius: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
   flex: 1;
+  font-family: inherit;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+label {
+  font-weight: 500;
+  color: #cbd5e1;
 }
 
 .editor-container {
@@ -307,11 +331,14 @@ input {
 }
 
 .btn {
-  padding: 8px 16px;
-  border-radius: 6px;
+  padding: 10px 20px;
+  border-radius: 8px;
   border: none;
   cursor: pointer;
-  font-weight: bold;
+  font-weight: 600;
+  font-family: inherit;
+  font-size: 0.95rem;
+  transition: all 0.2s;
 }
 
 .btn.primary {

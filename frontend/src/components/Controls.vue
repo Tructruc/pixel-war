@@ -176,9 +176,12 @@ defineExpose({ resetTimer })
 
 .progress-text {
   color: #cbd5e1;
-  font-size: 0.95rem;
-  font-weight: 500;
+  font-size: 1rem;
+  font-weight: 600;
   white-space: nowrap;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 .cancel-btn {

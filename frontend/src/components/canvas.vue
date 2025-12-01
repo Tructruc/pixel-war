@@ -1,7 +1,9 @@
 <script setup>
 import { onMounted, onBeforeUnmount, ref, reactive, watch} from "vue";
 import colors from '@/constants/colors.js'
-import { templates } from '@/constants/templates.js'
+import { useTemplates } from '@/composables/useTemplates.js'
+
+const { templates } = useTemplates()
 
 // Constants
 const x_size = 1024;
@@ -150,7 +152,7 @@ function onMouseMove(e) {
       const baseWorldX = Math.floor(cam.viewX + x / cam.zoom);
       const baseWorldY = Math.floor(cam.viewY + y / cam.zoom);
 
-      const shapePixels = templates[props.currentTemplate || 'Pixel'] || templates['Pixel'];
+      const shapePixels = templates.value[props.currentTemplate || 'Pixel'] || templates.value['Pixel'];
 
       for (const p of shapePixels) {
         const rotated = rotatePoint(p.x, p.y, props.rotation || 0);

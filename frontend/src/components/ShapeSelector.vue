@@ -1,7 +1,11 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
-import { templates } from '@/constants/templates.js'
 import colorsPalette from '@/constants/colors.js'
+import { useTemplates } from '@/composables/useTemplates.js'
+import TemplateCreator from '@/components/TemplateCreator.vue'
+
+const { templates, fetchTemplates } = useTemplates()
+const showCreator = ref(false)
 
 const props = defineProps({
   currentTemplate: {
@@ -42,7 +46,7 @@ function onClickOutside(e) {
 
 // Helper to calculate preview styles for a shape
 function getPreviewPixels(shapeName) {
-  const pixels = templates[shapeName]
+  const pixels = templates.value[shapeName]
   if (!pixels || pixels.length === 0) return []
 
   // Find bounds
@@ -89,11 +93,14 @@ function getPreviewPixels(shapeName) {
 
 // Compute number of columns so grid is rendered nicely
 const columns = computed(() => {
-  const total = Object.keys(templates).length
+  const total = Object.keys(templates.value).length
   return Math.ceil(total / 2) || 1
 })
 
-onMounted(() => window.addEventListener('click', onClickOutside))
+onMounted(() => {
+  window.addEventListener('click', onClickOutside)
+  fetchTemplates()
+})
 onBeforeUnmount(() => window.removeEventListener('click', onClickOutside))
 </script>
 
@@ -136,7 +143,20 @@ onBeforeUnmount(() => window.removeEventListener('click', onClickOutside))
           ></div>
         </div>
       </button>
+      
+      <button 
+        class="shape-option add-btn"
+        @click.stop="showCreator = true"
+        aria-label="Create new template"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      </button>
     </div>
+    
+    <TemplateCreator v-if="showCreator" @close="showCreator = false" />
   </div>
 </template>
 
@@ -200,6 +220,17 @@ onBeforeUnmount(() => window.removeEventListener('click', onClickOutside))
 .shape-option:hover {
   transform: scale(1.1);
   border-color: rgba(255,255,255,0.3);
+}
+
+.add-btn {
+  color: rgba(255,255,255,0.7);
+  border-style: dashed;
+}
+
+.add-btn:hover {
+  color: white;
+  border-color: white;
+  background-color: #475569;
 }
 
 .shape-preview {

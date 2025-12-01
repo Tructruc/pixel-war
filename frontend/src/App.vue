@@ -3,19 +3,17 @@ import Canvas from '@/components/canvas.vue'
 import { onMounted, ref } from 'vue'
 import Controls from '@/components/Controls.vue'
 import Splash from '@/components/Splash.vue'
-import { io } from 'socket.io-client'
-import expressXClient from '@jcbuisson/express-x-client'
-import { templates } from '@/constants/templates.js'
+import { client as app } from '@/services/api.js'
 import { useAppState } from '@/composables/useAppState.js'
+import { useTemplates } from '@/composables/useTemplates.js'
 
 const showSplash = ref(true)
 const pixels = ref([])
 const controls = ref(null)
-const socket = io( )
-const app = expressXClient(socket)
 
 // Use centralized state management
 const state = useAppState()
+const { templates } = useTemplates()
 
 let userId;
 
@@ -69,7 +67,7 @@ async function handleGreet(position) {
   } else {
     // Shape drawing logic
     state.startDrawing()
-    const shapePixels = templates[state.currentTemplate.value]
+    const shapePixels = templates.value[state.currentTemplate.value]
     if (!shapePixels) return
 
     // Add all pixels to queue with rotation

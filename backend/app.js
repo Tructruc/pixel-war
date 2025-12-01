@@ -11,7 +11,7 @@ const MAX_Y = 1023;
 const MAX_COLOR = 15;
 
 const toEpoch = (d) => (d ? (d instanceof Date ? d.getTime() : Number(d)) : Date.now());
- 
+
 
 // User service methods
 const userMethods = {
@@ -53,7 +53,7 @@ const canvaMethods = {
     if (x < 0 || x > MAX_X || y < 0 || y > MAX_Y) throw new ValidationError(`x and y must be between 0 and ${MAX_X}`);
     if (colorId < 0 || colorId > MAX_COLOR) throw new ValidationError(`colorId must be between 0 and ${MAX_COLOR}`);
 
-  const now = new Date();
+    const now = new Date();
     const nextTimestamp = new Date(Date.now() + PIXEL_COOLDOWN_MS);
 
     const pixel = await prisma.$transaction(async (tx) => {
@@ -99,9 +99,66 @@ const canvaMethods = {
 
 app.createService('Canva', canvaMethods)
 
+// Template service methods
+const templateMethods = {
+  /**
+   * Get all templates.
+   * @returns {Promise<Array<{id: string, name: string, pixels: any[]}>>}
+   */
+  /**
+   * Get all templates.
+   * @returns {Promise<Array<{id: string, name: string, pixels: any[]}>>}
+   */
+  find: async () => {
+    const templates = await prisma.template.findMany({ orderBy: { createdAt: 'desc' } });
+    return templates.map(t => ({
+      ...t,
+      pixels: JSON.parse(t.pixels)
+    }));
+  },
+
+  /**
+   * Create a new template.
+   * @param {string} name
+   * @param {Array<{x: number, y: number, color: number|null}>} pixels
+   */
+  /**
+   * Create a new template.
+   * @param {string} name
+   * @param {Array<{x: number, y: number, color: number|null}>} pixels
+   */
+  create: async (name, pixels) => {
+    if (!name || typeof name !== 'string') throw new ValidationError('name is required');
+    if (!Array.isArray(pixels) || pixels.length === 0) throw new ValidationError('pixels array is required');
+
+    // Basic validation of pixels structure
+    const validPixels = pixels.every(p =>
+      typeof p.x === 'number' &&
+      typeof p.y === 'number' &&
+      (p.color === null || typeof p.color === 'number')
+    );
+    if (!validPixels) throw new ValidationError('invalid pixel format');
+
+    const template = await prisma.template.create({
+      data: {
+        name,
+        pixels: JSON.stringify(pixels)
+      }
+    });
+
+    return {
+      ...template,
+      pixels: JSON.parse(template.pixels)
+    };
+  }
+}
+
+app.createService('Template', templateMethods)
+
 
 app.service('User').publish(async () => ['anonymous'])
 app.service('Canva').publish(async () => ['anonymous'])
+app.service('Template').publish(async () => ['anonymous'])
 
 app.addConnectListener((socket) => app.joinChannel('anonymous', socket))
 

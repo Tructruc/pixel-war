@@ -2,6 +2,7 @@
 import { onMounted, onBeforeUnmount, ref, reactive, watch} from "vue";
 import colors from '@/constants/colors.js'
 import { useTemplates } from '@/composables/useTemplates.js'
+import { useCamera } from '@/composables/useCamera.js'
 
 const { templates } = useTemplates()
 
@@ -19,13 +20,7 @@ const emit = defineEmits(["selected_pixel", "rotate_shape"]);
 const canvas = ref(null);
 const ctx = ref(null);
 
-const cam = reactive({
-  zoom: 30,
-  maxZoom: 200,
-  minZoom: 1,
-  viewX: 0,
-  viewY: 0,
-});
+const { cam, zoomAt, pan, clamp } = useCamera();
 
 // Variables
 let dragging = false;
@@ -37,9 +32,6 @@ let rafId = null;
 let needsRedraw = false;
 
 // Helpers
-function clamp(val, min, max) {
-  return Math.min(max, Math.max(min, val));
-}
 
 function getMousePos(evt) {
   const c = canvas.value;
@@ -99,25 +91,6 @@ function draw() {
   }
 }
 
-function zoomAt(mouseX, mouseY, factor) {
-  const oldZoom = cam.zoom;
-  const newZoom = clamp(oldZoom * factor, cam.minZoom, cam.maxZoom);
-  if (newZoom === oldZoom) return;
-
-  const newX = cam.viewX - mouseX / newZoom + mouseX / oldZoom;
-  const newY = cam.viewY - mouseY / newZoom + mouseY / oldZoom;
-
-  // Calculate max view bounds (how far we can see based on zoom)
-  const maxViewX = Math.max(0, x_size - canvas.value.width / newZoom);
-  const maxViewY = Math.max(0, y_size - canvas.value.height / newZoom);
-
-  // Clamp the view position to valid bounds
-  cam.viewX = clamp(newX, 0, maxViewX);
-  cam.viewY = clamp(newY, 0, maxViewY);
-  cam.zoom = newZoom;
-
-  requestRedraw();
-}
 
 function onMouseDown(e) {
   dragging = true;
@@ -176,20 +149,12 @@ function onMouseMove(e) {
   const dx = e.clientX - lastClientX;
   const dy = e.clientY - lastClientY;
 
-  const viewX = cam.viewX - dx / cam.zoom;
-  const viewY = cam.viewY - dy / cam.zoom;
-
   lastClientX = e.clientX;
   lastClientY = e.clientY;
 
-  if (viewX < 0 || viewX >= x_size - canvas.value.width / cam.zoom) return;
-  if (viewY < 0 || viewY >= y_size - canvas.value.height / cam.zoom) return;
-
-  cam.viewX = viewX;
-
-  cam.viewY = viewY;
-
-  requestRedraw();
+  if (pan(dx, dy, canvas.value.width, canvas.value.height)) {
+    requestRedraw();
+  }
 }
 
 function onMouseUp(e) {
@@ -258,7 +223,9 @@ function onWheel(e) {
   e.preventDefault();
   const { x, y } = getMousePos(e);
   const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1; // zoom in/out
-  zoomAt(x, y, factor);
+  if (zoomAt(x, y, factor, canvas.value.width, canvas.value.height)) {
+    requestRedraw();
+  }
 }
 
 // Watchers
@@ -288,6 +255,14 @@ watch(
 // Watch for full array replacement (initial load)
 watch(
   () => props.pixels,
+  () => {
+    requestRedraw();
+  }
+)
+
+// Watch for camera changes (e.g. from Minimap)
+watch(
+  cam,
   () => {
     requestRedraw();
   }

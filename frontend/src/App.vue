@@ -1,7 +1,9 @@
 <script setup>
 import Canvas from '@/components/canvas.vue'
-import { onMounted, ref } from 'vue'
+import { onMounted, onBeforeUnmount, ref } from 'vue'
 import Controls from '@/components/Controls.vue'
+import Minimap from '@/components/Minimap.vue'
+import HelpModal from '@/components/HelpModal.vue'
 import Splash from '@/components/Splash.vue'
 import { client as app } from '@/services/api.js'
 import { useAppState } from '@/composables/useAppState.js'
@@ -11,6 +13,8 @@ const showSplash = ref(true)
 const pixels = ref([])
 const pixelVersion = ref(0)
 const controls = ref(null)
+const showMinimap = ref(false)
+const showHelp = ref(false)
 
 const state = useAppState()
 const { templates } = useTemplates()
@@ -94,6 +98,22 @@ function handleTimerEnded() {
   }
 }
 
+function handleKeydown(e) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+
+  switch(e.key.toLowerCase()) {
+    case 'm':
+      showMinimap.value = !showMinimap.value
+      break
+    case 'h':
+      showHelp.value = !showHelp.value
+      break
+    case 'r':
+      state.rotateShape()
+      break
+  }
+}
+
 onMounted(async () => {
   setTimeout(() => {
     showSplash.value = false
@@ -130,6 +150,12 @@ onMounted(async () => {
   let nextTime = await app.service("User").getNextPlaceTime(userId);
   state.setNextPlaceTime(nextTime)
   if (controls.value && controls.value.resetTimer) controls.value.resetTimer(nextTime);
+
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleKeydown)
 })
 </script>
 
@@ -145,6 +171,8 @@ onMounted(async () => {
       :pixels="pixels" 
       :pixelVersion="pixelVersion"
     />
+    <Minimap v-show="showMinimap" :pixels="pixels" class="minimap-overlay" />
+    <HelpModal :show="showHelp" @close="showHelp = false" />
     <div class="overlay-controls">
       <Controls 
         ref="controls" 
@@ -191,5 +219,12 @@ html, body {
 
 .overlay-controls > * {
   pointer-events: auto;
+}
+
+.minimap-overlay {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
 }
 </style>

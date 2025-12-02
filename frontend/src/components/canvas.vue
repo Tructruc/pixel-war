@@ -26,6 +26,7 @@ const { cam, zoomAt, pan, clamp } = useCamera();
 let dragging = false;
 let lastClientX = 0;
 let lastClientY = 0;
+let lastMouseEvent = null;
 let clickStartTime = 0;
 let resizeObserver = null;
 let rafId = null;
@@ -114,6 +115,7 @@ function rotatePoint(x, y, r) {
 function onMouseMove(e) {
   if (!dragging) {
     if (props.isSelecting && canvas.value) {
+      lastMouseEvent = e;
       const { x, y } = getMousePos(e);
       const context = ctx.value;
       // Must call draw() directly for preview, not requestRedraw()
@@ -265,6 +267,16 @@ watch(
   cam,
   () => {
     requestRedraw();
+  }
+)
+
+// Watch for rotation changes to immediately update template shadow
+watch(
+  () => props.rotation,
+  () => {
+    if (props.isSelecting && lastMouseEvent) {
+      onMouseMove(lastMouseEvent);
+    }
   }
 )
 

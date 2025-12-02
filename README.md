@@ -2,19 +2,19 @@
 
 A real-time collaborative pixel art canvas, inspired by r/place. Users can place pixels on a shared canvas, create templates, and watch the artwork evolve in real-time.
 
-## 🚀 Features
+## Features
 
 - **Real-time Canvas**: See pixel updates instantly as other users place them.
 - **Template System**: Create, save, and share pixel art templates to coordinate efforts.
 - **Cooldown Mechanics**: Strategic pixel placement with cooldown timers.
 - **Responsive Design**: Works on desktop and mobile.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Frontend**: Vue 3, Vite, Socket.io Client
 - **Backend**: Node.js, ExpressX, Prisma, SQLite, Socket.io
 
-## 🏁 Quick Start
+## Quick Start
 
 ### Prerequisites
 

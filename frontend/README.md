@@ -2,7 +2,7 @@
 
 The frontend application for Pixel War, built with Vue 3 and Vite.
 
-## 🛠️ Setup
+## Setup
 
 1.  **Install Dependencies**
     ```bash
@@ -15,7 +15,7 @@ The frontend application for Pixel War, built with Vue 3 and Vite.
     ```
     The application will be available at `http://localhost:5173`.
 
-## 🏗️ Architecture
+## Architecture
 
 ### Key Components
 
@@ -29,14 +29,14 @@ The frontend application for Pixel War, built with Vue 3 and Vite.
 - **`useAppState.js`**: Manages global application state (user ID, cooldowns, current selection).
 - **`useTemplates.js`**: Handles fetching, creating, and deleting templates, including real-time synchronization.
 
-## 🎨 Features
+## Features
 
 - **Interactive Canvas**: Zoomable and pannable infinite canvas.
 - **Template System**: Draw and save your own templates.
 - **Real-time Updates**: Socket.io integration for instant updates.
 - **Responsive UI**: Optimized for both desktop and touch devices.
 
-## 📦 Scripts
+## Scripts
 
 - `npm run dev`: Start development server.
 - `npm run build`: Build for production.

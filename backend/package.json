@@ -4,7 +4,7 @@
   "description": "Real-time collaborative pixel art canvas backend",
   "main": "app.js",
   "type": "module",
-  "license": "AGPL-version-3.0",
+  "license": "MIT",
   "private": true,
   "engines": {
     "node": ">= 14.0.0",

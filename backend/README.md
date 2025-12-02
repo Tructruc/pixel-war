@@ -2,7 +2,7 @@
 
 The backend service for Pixel War, built with Node.js, ExpressX, and Prisma.
 
-## 🛠️ Setup
+## Setup
 
 1.  **Install Dependencies**
     ```bash
@@ -21,7 +21,7 @@ The backend service for Pixel War, built with Node.js, ExpressX, and Prisma.
     ```
     The server will start on `http://localhost:8000`.
 
-## ⚙️ Configuration
+## Configuration
 
 You can configure the server using environment variables:
 
@@ -33,7 +33,7 @@ You can configure the server using environment variables:
 | `MAX_Y` | `1023` | Canvas height - 1 |
 | `MAX_COLOR` | `15` | Max color ID (0-indexed) |
 
-## 🔌 API Services
+## API Services
 
 The backend uses `express-x` to expose services via REST and Socket.io.
 
@@ -50,6 +50,6 @@ The backend uses `express-x` to expose services via REST and Socket.io.
 - **`create(userId, name, pixels)`**: Creates a new template.
 - **`remove(userId, name)`**: Deletes a template (creator only).
 
-## 📡 Real-time Events
+## Real-time Events
 
 The server broadcasts updates to the `anonymous` channel. Clients should join this channel to receive real-time updates for pixel placements and template changes.

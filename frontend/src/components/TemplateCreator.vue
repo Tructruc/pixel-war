@@ -42,17 +42,17 @@ function handleMouseEnter(e, x, y) {
 
 async function save() {
   if (!name.value.trim()) return
-  
+
   isSaving.value = true
   try {
     const pixels = []
     // Find center of mass or bounding box to center the template
     // For simplicity, let's just export relative to top-left (0,0) of the grid
     // Or better, center it relative to the drawn shape's center
-    
+
     let minX = 20, maxX = -1, minY = 20, maxY = -1
     let hasPixels = false
-    
+
     for (let y = 0; y < 20; y++) {
       for (let x = 0; x < 20; x++) {
         if (grid[y][x] !== null) {
@@ -64,7 +64,7 @@ async function save() {
         }
       }
     }
-    
+
     if (!hasPixels) return
 
     const centerX = Math.floor((minX + maxX) / 2)
@@ -76,25 +76,12 @@ async function save() {
           pixels.push({
             x: x - centerX,
             y: y - centerY,
-            color: null // Use null so it adapts to selected color, or use grid[y][x] for fixed color?
-            // User request: "enable the user to draw anything without constrains"
-            // Let's use the specific color if they want fixed colors, or maybe add a checkbox?
-            // For now, let's assume they want fixed colors if they pick specific ones, 
-            // but maybe we should offer a "transparent/adaptive" color option?
-            // The prompt said "without constrains", so let's save the actual color ID.
-            // Wait, previous request was "not have a fix color" for Space Invader.
-            // Let's stick to fixed colors for now as that's what the drawing grid implies.
-            // Actually, let's use the color from the grid.
+            color: null
           })
-          // Override color to null if we want adaptive. 
-          // Let's add a toggle? No, keep it simple. Use the drawn color.
-          // But wait, if I draw in red, I expect it to be red.
-          // If I want it adaptive, I should probably select a special "adaptive" color?
-          // Let's just save the color ID for now.
         }
       }
     }
-    
+
     // Map pixels to use the color from the grid, converting 'adaptive' to null
     const finalPixels = pixels.map(p => ({
       ...p,
@@ -121,7 +108,7 @@ async function save() {
     <div class="modal-overlay" @click.self="$emit('close')">
       <div class="modal-content">
         <h2>Create New Template</h2>
-        
+
         <div class="form-group">
           <label>Name:</label>
           <input v-model="name" placeholder="Template Name" maxlength="20" />
@@ -130,11 +117,11 @@ async function save() {
         <div class="editor-container">
           <div class="grid">
             <div v-for="(row, y) in grid" :key="y" class="row">
-              <div 
-                v-for="(color, x) in row" 
-                :key="x" 
+              <div
+                v-for="(color, x) in row"
+                :key="x"
                 class="cell"
-                :style="{ 
+                :style="{
                   backgroundColor: color === 'adaptive' ? 'transparent' : (color !== null ? colors.colors[color] : 'transparent'),
                   backgroundImage: color === 'adaptive' ? 'repeating-linear-gradient(45deg, #cbd5e1 0, #cbd5e1 2px, transparent 2px, transparent 4px)' : 'none'
                 }"
@@ -145,17 +132,17 @@ async function save() {
           </div>
 
           <div class="palette">
-            <div 
-              v-for="(c, idx) in colors.colors" 
+            <div
+              v-for="(c, idx) in colors.colors"
               :key="idx"
               class="color-swatch"
               :class="{ active: selectedColor === idx && !isEraser && !isAdaptive }"
               :style="{ backgroundColor: c }"
               @click="selectedColor = idx; isEraser = false; isAdaptive = false"
             ></div>
-            
+
             <!-- Adaptive Color Tool -->
-            <div 
+            <div
               class="color-swatch adaptive-color"
               :class="{ active: isAdaptive && !isEraser }"
               @click="isAdaptive = true; isEraser = false"
@@ -166,9 +153,9 @@ async function save() {
                 <path d="M12 2a10 10 0 0 0 0 20"></path>
               </svg>
             </div>
-            
+
             <!-- Eraser Tool -->
-            <div 
+            <div
               class="color-swatch eraser"
               :class="{ active: isEraser }"
               @click="isEraser = true; isAdaptive = false"

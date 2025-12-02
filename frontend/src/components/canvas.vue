@@ -1,6 +1,10 @@
 <script setup>
 import { onMounted, onBeforeUnmount, ref, reactive, watch} from "vue";
 import colors from '@/constants/colors.js'
+import { useTemplates } from '@/composables/useTemplates.js'
+import { useCamera } from '@/composables/useCamera.js'
+
+const { templates } = useTemplates()
 
 // Constants
 const x_size = 1024;
@@ -9,20 +13,14 @@ const drag_threshold = 200; // ms
 const pixel_overlap = 0.5;
 
 // Defining props and emits
-const props = defineProps(["isSelecting", "pixels"]);
-const emit = defineEmits(["selected_pixel"]);
+const props = defineProps(["isSelecting", "pixels", "currentTemplate", "rotation", "pixelVersion"]);
+const emit = defineEmits(["selected_pixel", "rotate_shape"]);
 
 // Refs
 const canvas = ref(null);
 const ctx = ref(null);
 
-const cam = reactive({
-  zoom: 30,
-  maxZoom: 200,
-  minZoom: 1,
-  viewX: 0,
-  viewY: 0,
-});
+const { cam, zoomAt, pan, clamp } = useCamera();
 
 // Variables
 let dragging = false;
@@ -30,11 +28,10 @@ let lastClientX = 0;
 let lastClientY = 0;
 let clickStartTime = 0;
 let resizeObserver = null;
+let rafId = null;
+let needsRedraw = false;
 
 // Helpers
-function clamp(val, min, max) {
-  return Math.min(max, Math.max(min, val));
-}
 
 function getMousePos(evt) {
   const c = canvas.value;
@@ -58,6 +55,15 @@ function resizeCanvas() {
   draw();
 }
 
+function requestRedraw() {
+  if (needsRedraw) return;
+  needsRedraw = true;
+  rafId = requestAnimationFrame(() => {
+    draw();
+    needsRedraw = false;
+  });
+}
+
 function draw() {
   const c = canvas.value;
   const context = ctx.value;
@@ -68,7 +74,16 @@ function draw() {
   // To prevent anti-aliasing artifacts
   context.imageSmoothingEnabled = false;
 
+  // Viewport culling: only render visible pixels
+  const minX = Math.floor(cam.viewX);
+  const maxX = Math.ceil(cam.viewX + c.width / cam.zoom);
+  const minY = Math.floor(cam.viewY);
+  const maxY = Math.ceil(cam.viewY + c.height / cam.zoom);
+
   for (const p of props.pixels) {
+    // Skip pixels outside viewport
+    if (p.x < minX || p.x > maxX || p.y < minY || p.y > maxY) continue;
+    
     context.fillStyle = colors.colors[p.color];
     const sx = (p.x - cam.viewX) * cam.zoom;
     const sy = (p.y - cam.viewY) * cam.zoom;
@@ -76,25 +91,6 @@ function draw() {
   }
 }
 
-function zoomAt(mouseX, mouseY, factor) {
-  const oldZoom = cam.zoom;
-  const newZoom = clamp(oldZoom * factor, cam.minZoom, cam.maxZoom);
-  if (newZoom === oldZoom) return;
-
-  const newX = cam.viewX - mouseX / newZoom + mouseX / oldZoom;
-  const newY = cam.viewY - mouseY / newZoom + mouseY / oldZoom;
-
-  // Calculate max view bounds (how far we can see based on zoom)
-  const maxViewX = Math.max(0, x_size - canvas.value.width / newZoom);
-  const maxViewY = Math.max(0, y_size - canvas.value.height / newZoom);
-
-  // Clamp the view position to valid bounds
-  cam.viewX = clamp(newX, 0, maxViewX);
-  cam.viewY = clamp(newY, 0, maxViewY);
-  cam.zoom = newZoom;
-
-  draw();
-}
 
 function onMouseDown(e) {
   dragging = true;
@@ -106,20 +102,46 @@ function onMouseDown(e) {
   }
 }
 
+function rotatePoint(x, y, r) {
+  switch (r) {
+    case 1: return { x: -y, y: x }
+    case 2: return { x: -x, y: -y }
+    case 3: return { x: y, y: -x }
+    default: return { x, y }
+  }
+}
+
 function onMouseMove(e) {
   if (!dragging) {
     if (props.isSelecting && canvas.value) {
       const { x, y } = getMousePos(e);
       const context = ctx.value;
+      // Must call draw() directly for preview, not requestRedraw()
+      // because we need to draw the preview strokes synchronously on top
       draw();
       context.strokeStyle = "black";
       context.lineWidth = 2;
-      context.strokeRect(
-        Math.floor(cam.viewX + x / cam.zoom) * cam.zoom - cam.viewX * cam.zoom,
-        Math.floor(cam.viewY + y / cam.zoom) * cam.zoom - cam.viewY * cam.zoom,
-        cam.zoom,
-        cam.zoom
-      );
+
+      const baseWorldX = Math.floor(cam.viewX + x / cam.zoom);
+      const baseWorldY = Math.floor(cam.viewY + y / cam.zoom);
+
+      const shapePixels = templates.value[props.currentTemplate || 'Pixel'] || templates.value['Pixel'];
+
+      for (const p of shapePixels) {
+        const rotated = rotatePoint(p.x, p.y, props.rotation || 0);
+        const targetX = baseWorldX + rotated.x;
+        const targetY = baseWorldY + rotated.y;
+        
+        // Only draw if within bounds (optional, but good for visual clarity)
+        // if (targetX < 0 || targetX >= x_size || targetY < 0 || targetY >= y_size) continue;
+
+        context.strokeRect(
+          targetX * cam.zoom - cam.viewX * cam.zoom,
+          targetY * cam.zoom - cam.viewY * cam.zoom,
+          cam.zoom,
+          cam.zoom
+        );
+      }
     }
 
     return;
@@ -127,20 +149,12 @@ function onMouseMove(e) {
   const dx = e.clientX - lastClientX;
   const dy = e.clientY - lastClientY;
 
-  const viewX = cam.viewX - dx / cam.zoom;
-  const viewY = cam.viewY - dy / cam.zoom;
-
   lastClientX = e.clientX;
   lastClientY = e.clientY;
 
-  if (viewX < 0 || viewX >= x_size - canvas.value.width / cam.zoom) return;
-  if (viewY < 0 || viewY >= y_size - canvas.value.height / cam.zoom) return;
-
-  cam.viewX = viewX;
-
-  cam.viewY = viewY;
-
-  draw();
+  if (pan(dx, dy, canvas.value.width, canvas.value.height)) {
+    requestRedraw();
+  }
 }
 
 function onMouseUp(e) {
@@ -163,11 +177,55 @@ function onMouseUp(e) {
 }
 
 
+function onContextMenu(e) {
+  e.preventDefault();
+  if (props.isSelecting) {
+    emit("rotate_shape");
+  }
+}
+
+function onTouchStart(e) {
+  if (e.touches.length === 1) {
+    e.preventDefault(); // Prevent scrolling
+    const touch = e.touches[0];
+    onMouseDown({
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      preventDefault: () => {}
+    });
+  }
+}
+
+function onTouchMove(e) {
+  if (e.touches.length === 1) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    onMouseMove({
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      preventDefault: () => {}
+    });
+  }
+}
+
+function onTouchEnd(e) {
+  if (e.changedTouches.length > 0) {
+    const touch = e.changedTouches[0];
+    onMouseUp({
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      preventDefault: () => {}
+    });
+  }
+}
+
 function onWheel(e) {
   e.preventDefault();
   const { x, y } = getMousePos(e);
   const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1; // zoom in/out
-  zoomAt(x, y, factor);
+  if (zoomAt(x, y, factor, canvas.value.width, canvas.value.height)) {
+    requestRedraw();
+  }
 }
 
 // Watchers
@@ -181,18 +239,33 @@ watch(
     } else {
       if (canvas.value) {
         canvas.value.style.cursor = "grab";
-        draw()
+        requestRedraw()
       }
     }
   }
 )
 
 watch(
+  () => props.pixelVersion,
+  () => {
+    requestRedraw();
+  }
+)
+
+// Watch for full array replacement (initial load)
+watch(
   () => props.pixels,
   () => {
-    draw();
-  },
-  { deep: true }
+    requestRedraw();
+  }
+)
+
+// Watch for camera changes (e.g. from Minimap)
+watch(
+  cam,
+  () => {
+    requestRedraw();
+  }
 )
 
 // Hooks
@@ -210,13 +283,25 @@ onMounted(() => {
   resizeObserver.observe(canvas.value);
 
   canvas.value.addEventListener("mousedown", onMouseDown);
+  canvas.value.addEventListener("touchstart", onTouchStart, { passive: false });
+  
   window.addEventListener("mousemove", onMouseMove);
+  window.addEventListener("touchmove", onTouchMove, { passive: false });
+  
   window.addEventListener("mouseup", onMouseUp);
+  window.addEventListener("touchend", onTouchEnd);
+  
   canvas.value.addEventListener("wheel", onWheel, { passive: false });
+  canvas.value.addEventListener("contextmenu", onContextMenu);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("resize", resizeCanvas);
+  
+  // Cancel pending animation frame
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId);
+  }
   
   if (resizeObserver) {
     resizeObserver.disconnect();
@@ -224,9 +309,16 @@ onBeforeUnmount(() => {
   
   if (!canvas.value) return;
   canvas.value.removeEventListener("mousedown", onMouseDown);
+  canvas.value.removeEventListener("touchstart", onTouchStart);
+  
   window.removeEventListener("mousemove", onMouseMove);
+  window.removeEventListener("touchmove", onTouchMove);
+  
   window.removeEventListener("mouseup", onMouseUp);
+  window.removeEventListener("touchend", onTouchEnd);
+  
   canvas.value.removeEventListener("wheel", onWheel);
+  canvas.value.removeEventListener("contextmenu", onContextMenu);
 });
 </script>
 

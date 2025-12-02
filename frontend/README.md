@@ -1,44 +1,45 @@
-# frontend
+# Pixel War Frontend
 
-This template should help get you started developing with Vue 3 in Vite.
+The frontend application for Pixel War, built with Vue 3 and Vite.
 
-## Recommended IDE Setup
+## Setup
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+1.  **Install Dependencies**
+    ```bash
+    npm install
+    ```
 
-## Recommended Browser Setup
+2.  **Run Development Server**
+    ```bash
+    npm run dev
+    ```
+    The application will be available at `http://localhost:5173`.
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd) 
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+## Architecture
 
-## Customize configuration
+### Key Components
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+- **`canvas.vue`**: The core component that renders the pixel grid. Handles zooming, panning, and pixel placement. Optimized with viewport culling and `requestAnimationFrame`.
+- **`TemplateCreator.vue`**: A modal interface for designing and saving 20x20 pixel art templates.
+- **`Controls.vue`**: The main UI overlay containing the color selector, template selector, and other tools.
+- **`ShapeSelector.vue`**: Allows users to pick from available templates to place on the canvas.
 
-## Project Setup
+### State Management
 
-```sh
-npm install
-```
+- **`useAppState.js`**: Manages global application state (user ID, cooldowns, current selection).
+- **`useTemplates.js`**: Handles fetching, creating, and deleting templates, including real-time synchronization.
 
-### Compile and Hot-Reload for Development
+## Features
 
-```sh
-npm run dev
-```
+- **Interactive Canvas**: Zoomable and pannable infinite canvas.
+- **Template System**: Draw and save your own templates.
+- **Real-time Updates**: Socket.io integration for instant updates.
+- **Responsive UI**: Optimized for both desktop and touch devices.
 
-### Compile and Minify for Production
+## Scripts
 
-```sh
-npm run build
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-npm run lint
-```
+- `npm run dev`: Start development server.
+- `npm run build`: Build for production.
+- `npm run preview`: Preview production build.
+- `npm run lint`: Lint code with ESLint.
+- `npm run format`: Format code with Prettier.

@@ -5,15 +5,15 @@ import { ValidationError, NotFoundError, TooManyRequestsError } from './errors.j
 const app = expressX();
 const prisma = new PrismaClient();
 
-const PIXEL_COOLDOWN_MS = 5_000;
-const MAX_X = 1023;
-const MAX_Y = 1023;
-const MAX_COLOR = 15;
+const PIXEL_COOLDOWN_MS = parseInt(process.env.PIXEL_COOLDOWN_MS || '5000');
+const MAX_X = parseInt(process.env.MAX_X || '1023');
+const MAX_Y = parseInt(process.env.MAX_Y || '1023');
+const MAX_COLOR = parseInt(process.env.MAX_COLOR || '15');
+const PORT = parseInt(process.env.PORT || '8000');
 
 const toEpoch = (d) => (d ? (d instanceof Date ? d.getTime() : Number(d)) : Date.now());
- 
 
-// User service methods
+
 const userMethods = {
   /**
    * Create/authenticate a user and return its id.
@@ -35,7 +35,6 @@ const userMethods = {
 
 app.createService('User', userMethods)
 
-// Canva (pixel) service methods
 const canvaMethods = {
   /**
    * Place a pixel on the canvas.
@@ -53,7 +52,7 @@ const canvaMethods = {
     if (x < 0 || x > MAX_X || y < 0 || y > MAX_Y) throw new ValidationError(`x and y must be between 0 and ${MAX_X}`);
     if (colorId < 0 || colorId > MAX_COLOR) throw new ValidationError(`colorId must be between 0 and ${MAX_COLOR}`);
 
-  const now = new Date();
+    const now = new Date();
     const nextTimestamp = new Date(Date.now() + PIXEL_COOLDOWN_MS);
 
     const pixel = await prisma.$transaction(async (tx) => {
@@ -99,9 +98,90 @@ const canvaMethods = {
 
 app.createService('Canva', canvaMethods)
 
+const templateMethods = {
+  /**
+   * Get all templates.
+   * @returns {Promise<Array<{id: string, name: string, pixels: any[]}>>}
+   */
+  find: async () => {
+    const templates = await prisma.template.findMany({ orderBy: { createdAt: 'desc' } });
+    return templates.map(t => ({
+      ...t,
+      pixels: JSON.parse(t.pixels),
+      creatorId: t.creatorId
+    }));
+  },
+
+  /**
+   * Create a new template.
+   * @param {string} userId
+   * @param {string} name
+   * @param {Array<{x: number, y: number, color: number|null}>} pixels
+   */
+  create: async (userId, name, pixels) => {
+    if (!userId) throw new ValidationError('userId is required');
+    if (!name || typeof name !== 'string') throw new ValidationError('name is required');
+
+    name = name.trim().slice(0, 20);
+    if (name.length === 0) throw new ValidationError('name is required');
+
+    if (!Array.isArray(pixels) || pixels.length === 0) throw new ValidationError('pixels array is required');
+
+    if (pixels.length > 400) throw new ValidationError('template too large (max 400 pixels)');
+
+    const validPixels = pixels.every(p =>
+      typeof p.x === 'number' &&
+      typeof p.y === 'number' &&
+      (p.color === null || typeof p.color === 'number')
+    );
+    if (!validPixels) throw new ValidationError('invalid pixel format');
+
+    const template = await prisma.template.create({
+      data: {
+        name,
+        pixels: JSON.stringify(pixels),
+        creatorId: userId
+      }
+    });
+
+    return {
+      ...template,
+      pixels: JSON.parse(template.pixels)
+    };
+  },
+
+  /**
+   * Delete a template by name.
+   * @param {string} userId
+   * @param {string} name
+   */
+  remove: async (userId, name) => {
+    if (!userId) throw new ValidationError('userId is required');
+    if (!name) throw new ValidationError('name is required');
+
+    try {
+      const template = await prisma.template.findUnique({ where: { name } });
+      if (!template) throw new NotFoundError('template not found');
+
+      if (template.creatorId !== userId) {
+        throw new ValidationError('unauthorized: you are not the creator of this template');
+      }
+
+      await prisma.template.delete({ where: { name } });
+      return { name };
+    } catch (e) {
+      if (e.code === 'P2025') throw new NotFoundError('template not found');
+      throw e;
+    }
+  }
+}
+
+app.createService('Template', templateMethods)
+
 
 app.service('User').publish(async () => ['anonymous'])
 app.service('Canva').publish(async () => ['anonymous'])
+app.service('Template').publish(async () => ['anonymous'])
 
 app.addConnectListener((socket) => app.joinChannel('anonymous', socket))
 
@@ -141,23 +221,23 @@ app.use((err, req, res, next) => {
   res.status(status).json(body);
 });
 
-const server = app.httpServer.listen(8000, () => console.log(`App listening at http://localhost:8000`));
+const server = app.httpServer.listen(PORT, () => console.log(`App listening at http://localhost:${PORT}`));
 
 const shutdown = async (signal) => {
-  console.log(`Received ${signal}, shutting down...`)
-  try {
-    server.close(() => console.log('HTTP server closed'));
-  } catch (e) {
-    console.error('Error closing server', e);
-  }
-  try {
-    await prisma.$disconnect();
-    console.log('Prisma disconnected');
-  } catch (e) {
-    console.error('Error disconnecting Prisma', e);
-  }
-  process.exit(0)
-}
+  console.log(`Received ${signal}, shutting down...`);
+
+  await Promise.allSettled([
+    new Promise((resolve) => {
+      server.close(() => {
+        console.log('HTTP server closed');
+        resolve();
+      });
+    }),
+    prisma.$disconnect().then(() => console.log('Prisma disconnected'))
+  ]);
+
+  process.exit(0);
+};
 
 process.on('SIGINT', () => shutdown('SIGINT'))
 process.on('SIGTERM', () => shutdown('SIGTERM'))

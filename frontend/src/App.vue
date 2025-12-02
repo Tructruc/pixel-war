@@ -1,49 +1,139 @@
 <script setup>
 import Canvas from '@/components/canvas.vue'
-import { onMounted, ref } from 'vue'
+import { onMounted, onBeforeUnmount, ref } from 'vue'
 import Controls from '@/components/Controls.vue'
+import Minimap from '@/components/Minimap.vue'
+import HelpModal from '@/components/HelpModal.vue'
 import Splash from '@/components/Splash.vue'
-import { io } from 'socket.io-client'
-import expressXClient from '@jcbuisson/express-x-client'
+import { client as app } from '@/services/api.js'
+import { useAppState } from '@/composables/useAppState.js'
+import { useTemplates } from '@/composables/useTemplates.js'
 
 const showSplash = ref(true)
-const isSelecting = ref(false)
-var currentColor = ref(1)
 const pixels = ref([])
+const pixelVersion = ref(0)
 const controls = ref(null)
-const socket = io( )
-const app = expressXClient(socket)
+const showMinimap = ref(false)
+const showHelp = ref(false)
+
+const state = useAppState()
+const { templates } = useTemplates()
 
 let userId;
 
-async function handleGreet(position) {
+function rotatePoint(x, y, r) {
+  switch (r) {
+    case 1: return { x: -y, y: x }
+    case 2: return { x: -x, y: -y }
+    case 3: return { x: y, y: -x }
+    default: return { x, y }
+  }
+}
+
+async function processQueue() {
+  if (state.drawingQueue.value.length === 0) {
+    state.finishDrawing()
+    return
+  }
+
+  const pixel = state.dequeue()
+  
+  const colorToUse = pixel.color !== null ? pixel.color : state.currentColor.value
+
   await app
     .service('Canva')
     .placePixel(
       userId,
-    position.x,
-    position.y,
-    currentColor.value);
+      pixel.x,
+      pixel.y,
+      colorToUse
+    );
+  
   let newNextTime = await app.service("User").getNextPlaceTime(userId);
+  state.setNextPlaceTime(newNextTime);
   if (controls.value && controls.value.resetTimer) controls.value.resetTimer(newNextTime);
-  isSelecting.value = false;
+  
+  if (state.drawingQueue.value.length === 0) {
+    state.finishDrawing()
+  }
 }
-function handleColorSelected(color) {
-  currentColor.value = color
+
+async function handleGreet(position) {
+  if (state.currentTemplate.value === 'Pixel') {
+    await app
+      .service('Canva')
+      .placePixel(
+        userId,
+      position.x,
+      position.y,
+      state.currentColor.value);
+    let newNextTime = await app.service("User").getNextPlaceTime(userId);
+    state.setNextPlaceTime(newNextTime);
+    if (controls.value && controls.value.resetTimer) controls.value.resetTimer(newNextTime);
+  } else {
+    state.startDrawing()
+    const shapePixels = templates.value[state.currentTemplate.value]
+    if (!shapePixels) return
+
+    const pixelsToQueue = shapePixels.map(p => {
+      const rotated = rotatePoint(p.x, p.y, state.rotation.value)
+      return {
+        x: position.x + rotated.x,
+        y: position.y + rotated.y,
+        color: p.color
+      }
+    })
+
+    state.addToQueue(pixelsToQueue)
+
+    processQueue()
+  }
+}
+
+function handleTimerEnded() {
+  if (state.drawingQueue.value.length > 0) {
+    processQueue()
+  } else {
+    state.forceEnableSelection()
+  }
+}
+
+function handleKeydown(e) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+
+  switch(e.key.toLowerCase()) {
+    case 'm':
+      showMinimap.value = !showMinimap.value
+      break
+    case 'h':
+      showHelp.value = !showHelp.value
+      break
+    case 'r':
+      state.rotateShape()
+      break
+  }
 }
 
 onMounted(async () => {
-  // Hide splash screen after 3 seconds
   setTimeout(() => {
     showSplash.value = false
   }, 3000)
 
   const map = await app.service('Canva').getPixels()
   pixels.value = map
-  if (localStorage.getItem("userId")) {
-    userId = localStorage.getItem("userId");
-  } else {
-    var user = await app.service('User').authenticate()
+  const storedId = localStorage.getItem("userId");
+  if (storedId) {
+    try {
+      await app.service("User").getNextPlaceTime(storedId);
+      userId = storedId;
+    } catch (e) {
+      console.warn("Invalid user ID, re-authenticating...", e);
+      localStorage.removeItem("userId");
+    }
+  }
+  
+  if (!userId) {
+    const user = await app.service('User').authenticate()
     userId = user.id
     localStorage.setItem("userId", userId);
   }
@@ -54,19 +144,40 @@ onMounted(async () => {
       pixels.value.splice(index, 1)
     }
     pixels.value.push({ x: p.x, y: p.y, color: p.color })
+    pixelVersion.value++
   })
 
   let nextTime = await app.service("User").getNextPlaceTime(userId);
+  state.setNextPlaceTime(nextTime)
   if (controls.value && controls.value.resetTimer) controls.value.resetTimer(nextTime);
+
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleKeydown)
 })
 </script>
 
 <template>
   <Splash v-if="showSplash" />
   <div class="app-container">
-    <Canvas :isSelecting="isSelecting" @selected_pixel="handleGreet" :pixels="pixels" />
+    <Canvas 
+      :isSelecting="state.canSelect.value" 
+      :currentTemplate="state.currentTemplate.value" 
+      :rotation="state.rotation.value"
+      @selected_pixel="handleGreet" 
+      @rotate_shape="state.rotateShape()"
+      :pixels="pixels" 
+      :pixelVersion="pixelVersion"
+    />
+    <Minimap v-show="showMinimap" :pixels="pixels" class="minimap-overlay" />
+    <HelpModal :show="showHelp" @close="showHelp = false" />
     <div class="overlay-controls">
-      <Controls ref="controls" @color_selected="handleColorSelected" @timer_ended="isSelecting = true" :currernt-color="currentColor" />
+      <Controls 
+        ref="controls" 
+        @timer_ended="handleTimerEnded" 
+      />
     </div>
   </div>
 </template>
@@ -108,5 +219,12 @@ html, body {
 
 .overlay-controls > * {
   pointer-events: auto;
+}
+
+.minimap-overlay {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
 }
 </style>

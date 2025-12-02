@@ -17,6 +17,14 @@ model Canva {
   @@index([placedAt])
 }
 
+model Template {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  pixels    String   // JSON stringified array of {x, y, color}
+  creatorId String
+  createdAt DateTime @default(now())
+}
+
 datasource db {
   provider = "sqlite"
   url      = "file:./dev.db"

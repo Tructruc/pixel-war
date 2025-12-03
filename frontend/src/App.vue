@@ -37,7 +37,7 @@ async function processQueue() {
   }
 
   const pixel = state.dequeue()
-  
+
   const colorToUse = pixel.color !== null ? pixel.color : state.currentColor.value
 
   await app
@@ -48,11 +48,11 @@ async function processQueue() {
       pixel.y,
       colorToUse
     );
-  
+
   let newNextTime = await app.service("User").getNextPlaceTime(userId);
   state.setNextPlaceTime(newNextTime);
   if (controls.value && controls.value.resetTimer) controls.value.resetTimer(newNextTime);
-  
+
   if (state.drawingQueue.value.length === 0) {
     state.finishDrawing()
   }
@@ -70,6 +70,7 @@ async function handleGreet(position) {
     let newNextTime = await app.service("User").getNextPlaceTime(userId);
     state.setNextPlaceTime(newNextTime);
     if (controls.value && controls.value.resetTimer) controls.value.resetTimer(newNextTime);
+    state.finishDrawing();
   } else {
     state.startDrawing()
     const shapePixels = templates.value[state.currentTemplate.value]
@@ -131,7 +132,7 @@ onMounted(async () => {
       localStorage.removeItem("userId");
     }
   }
-  
+
   if (!userId) {
     const user = await app.service('User').authenticate()
     userId = user.id
@@ -162,21 +163,21 @@ onBeforeUnmount(() => {
 <template>
   <Splash v-if="showSplash" />
   <div class="app-container">
-    <Canvas 
-      :isSelecting="state.canSelect.value" 
-      :currentTemplate="state.currentTemplate.value" 
+    <Canvas
+      :isSelecting="state.canSelect.value"
+      :currentTemplate="state.currentTemplate.value"
       :rotation="state.rotation.value"
-      @selected_pixel="handleGreet" 
+      @selected_pixel="handleGreet"
       @rotate_shape="state.rotateShape()"
-      :pixels="pixels" 
+      :pixels="pixels"
       :pixelVersion="pixelVersion"
     />
     <Minimap v-show="showMinimap" :pixels="pixels" class="minimap-overlay" />
     <HelpModal :show="showHelp" @close="showHelp = false" />
     <div class="overlay-controls">
-      <Controls 
-        ref="controls" 
-        @timer_ended="handleTimerEnded" 
+      <Controls
+        ref="controls"
+        @timer_ended="handleTimerEnded"
       />
     </div>
   </div>

@@ -1,0 +1,26 @@
+services:
+  pixel-war:
+    container_name: pixel-war
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - PIXEL_COOLDOWN_MS=5000
+      - MAX_X=1023
+      - MAX_Y=1023
+      - MAX_COLOR=15
+
+      - NODE_ENV=production
+
+    volumes:
+      - ./app-data:/app/backend/prisma
+
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

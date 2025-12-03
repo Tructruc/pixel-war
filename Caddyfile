@@ -1,0 +1,23 @@
+:80 {
+# 1. Handle Socket.io (Mimic Vite Proxy)
+# The matcher /socket.io* ensures we catch requests with or without trailing slashes.
+    handle /socket.io* {
+                           reverse_proxy localhost:3000 {
+                                                        # EQUIVALENT TO "changeOrigin: true" in Vite
+                                                        # This tricks the backend into thinking the request is direct to port 3000
+                                                            header_up Host {upstream_hostport}
+                                                        }
+                       }
+
+# 2. Handle Frontend (Mimic Vite SPA behavior)
+    handle {
+           # Point this to your built output folder (usually 'dist' or 'build')
+               root * /var/www/html
+
+           # EQUIVALENT TO Vite's History API Fallback
+           # If a file isn't found, serve index.html so React/Vue/Angular router takes over.
+               try_files {path} /index.html
+
+               file_server
+           }
+}

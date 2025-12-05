@@ -1,55 +1,56 @@
 # Pixel War Backend
 
-The backend service for Pixel War, built with Node.js, ExpressX, and Prisma.
+Le service backend de Pixel War, construit avec Node.js, ExpressX et Prisma.
 
-## Setup
+## Installation
 
-1.  **Install Dependencies**
+1. **Installer les dépendances**
     ```bash
     npm install
     ```
 
-2.  **Database Setup**
-    Initialize the SQLite database:
+2. **Configurer la base de données**  
+    Initialiser la base SQLite :
     ```bash
     npx prisma db push
     ```
 
-3.  **Run Server**
+3. **Lancer le serveur**
     ```bash
     npm run dev
     ```
-    The server will start on `http://localhost:8000`.
+    Le serveur démarrera sur `http://localhost:8000`.
 
 ## Configuration
 
-You can configure the server using environment variables:
+Vous pouvez configurer le serveur via des variables d’environnement :
 
-| Variable | Default | Description |
+| Variable | Valeur par défaut | Description |
 | :--- | :--- | :--- |
-| `PORT` | `8000` | Server port |
-| `PIXEL_COOLDOWN_MS` | `5000` | Cooldown between pixel placements (ms) |
-| `MAX_X` | `1023` | Canvas width - 1 |
-| `MAX_Y` | `1023` | Canvas height - 1 |
-| `MAX_COLOR` | `15` | Max color ID (0-indexed) |
+| `PORT` | `8000` | Port du serveur |
+| `PIXEL_COOLDOWN_MS` | `5000` | Cooldown entre deux placements de pixels (ms) |
+| `MAX_X` | `1023` | Largeur de la toile - 1 |
+| `MAX_Y` | `1023` | Hauteur de la toile - 1 |
+| `MAX_COLOR` | `15` | ID maximum de couleur (indexé à partir de 0) |
 
-## API Services
+## Services API
 
-The backend uses `express-x` to expose services via REST and Socket.io.
+Le backend utilise `express-x` pour exposer des services via REST et Socket.io.
 
-### User Service
-- **`authenticate()`**: Creates a new user session.
-- **`getNextPlaceTime(userId)`**: Returns the timestamp when the user can place their next pixel.
+### Service Utilisateur
+- **`authenticate()`** : Crée une nouvelle session utilisateur.
+- **`getNextPlaceTime(userId)`** : Renvoie le timestamp auquel l’utilisateur pourra placer son prochain pixel.
 
-### Canva Service
-- **`placePixel(userId, x, y, colorId)`**: Places a pixel on the canvas. Enforces cooldowns.
-- **`getPixels(since?)`**: Retrieves all pixels. If `since` is provided, returns only pixels placed after that timestamp.
+### Service Canvas
+- **`placePixel(userId, x, y, colorId)`** : Place un pixel sur la toile. Applique les cooldowns.
+- **`getPixels(since?)`** : Récupère tous les pixels. Si `since` est fourni, renvoie uniquement les pixels placés après ce timestamp.
 
-### Template Service
-- **`find()`**: Retrieves all available templates.
-- **`create(userId, name, pixels)`**: Creates a new template.
-- **`remove(userId, name)`**: Deletes a template (creator only).
+### Service Template
+- **`find()`** : Récupère tous les modèles disponibles.
+- **`create(userId, name, pixels)`** : Crée un nouveau modèle.
+- **`remove(userId, name)`** : Supprime un modèle (réservé au créateur).
 
-## Real-time Events
+## Événements en temps réel
 
-The server broadcasts updates to the `anonymous` channel. Clients should join this channel to receive real-time updates for pixel placements and template changes.
+Le serveur diffuse les mises à jour sur le canal `anonymous`.  
+Les clients doivent rejoindre ce canal pour recevoir les mises à jour en temps réel concernant les placements de pixels et les modifications de modèles.

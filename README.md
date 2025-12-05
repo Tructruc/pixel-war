@@ -1,61 +1,61 @@
 # Pixel War
 
-**A real-time collaborative pixel art canvas.**
+**Une toile de pixel art collaborative en temps réel.**
 
-Inspired by the social experiment r/place, Pixel War allows users to place pixels on a shared digital canvas, create templates to guide their designs, and watch the artwork evolve live with other users.
+Inspiré par l’expérience sociale *r/place*, Pixel War permet aux utilisateurs de placer des pixels sur une toile numérique partagée, de créer des modèles pour guider leurs créations et de voir l’œuvre évoluer en direct avec les autres participants.
 
-### [Live Demo](https://pixel-war.emilien-fieu.fr/)
+### [Démo en ligne](https://pixel-war.emilien-fieu.fr/)
 
-## Preview
+## Aperçu
 [![Pixel War Demo](https://img.youtube.com/vi/iUljuZ8Nh5E/0.jpg)](https://youtu.be/iUljuZ8Nh5E)  
-*(Click the image to watch the demo video)*
+*(Cliquez sur l’image pour regarder la vidéo de démonstration)*
 
-## ✨ Features
-* **Real-time Collaboration:** Watch the canvas update instantly as users contribute.
-* **Template System:** Create and use templates to coordinate complex artwork.
-* **Shared Canvas:** A persistent world where every pixel counts.
+## ✨ Fonctionnalités
+* **Collaboration en temps réel :** La toile se met à jour instantanément lorsque les utilisateurs ajoutent des pixels.
+* **Système de modèles :** Créez et utilisez des modèles pour coordonner des dessins complexes.
+* **Toile partagée :** Un monde persistant où chaque pixel compte.
 
-## Features
+## Fonctionnalités
 
-- **Real-time Canvas**: See pixel updates instantly as other users place them.
-- **Template System**: Create, save, and share pixel art templates to coordinate efforts.
-- **Cooldown Mechanics**: Strategic pixel placement with cooldown timers.
-- **Responsive Design**: Works on desktop and somehow mobile.
+- **Toile en temps réel** : Voyez les mises à jour apparaître instantanément lorsque d'autres utilisateurs placent des pixels.
+- **Système de modèles** : Créez, enregistrez et partagez des modèles de pixel art pour coordonner vos efforts.
+- **Mécanismes de cooldown** : Placement stratégique des pixels avec temps de recharge.
+- **Design responsive** : Fonctionne sur ordinateur et, tant bien que mal, sur mobile.
 
-## Tech Stack
+## Stack Technique
 
-- **Frontend**: Vue 3, Vite, Socket.io Client
-- **Backend**: Node.js, ExpressX, Prisma, SQLite, Socket.io
+- **Frontend** : Vue 3, Vite, Socket.io Client
+- **Backend** : Node.js, ExpressX, Prisma, SQLite, Socket.io
 
-## Quick Start
+## Démarrage rapide
 
-### Prerequisites
+### Prérequis
 
 - Node.js (v14+)
 - npm
 
 ### Installation
 
-1.  **Clone the repository**
+1. **Cloner le dépôt**
     ```bash
     git clone <repository-url>
     cd pixel-war
     ```
 
-2.  **Setup Backend**
+2. **Configurer le backend**
     ```bash
     cd backend
     npm install
-    npx prisma db push  # Initialize SQLite database
-    npm run dev         # Starts server on port 8000
+    npx prisma db push  # Initialise la base SQLite
+    npm run dev         # Lance le serveur sur le port 8000
     ```
 
-3.  **Setup Frontend** (in a new terminal)
+3. **Configurer le frontend** (dans un nouveau terminal)
     ```bash
     cd frontend
     npm install
-    npm run dev         # Starts client
+    npm run dev         # Lance le client
     ```
 
-4.  **Open Application**
-    Visit the URL shown in the frontend terminal (usually `http://localhost:5173`).
+4. **Ouvrir l'application**
+    Rendez-vous à l’URL affichée dans le terminal du frontend (généralement `http://localhost:5173`).
